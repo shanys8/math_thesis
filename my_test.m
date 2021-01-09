@@ -1,19 +1,22 @@
 clear all; close all; clc;
 RandStream.setGlobalStream(RandStream('mt19937ar','seed', 1));  % fixed seed
 
-eigenvalues_spaced = 'Equidistantly'; % Equidistantly|Logarithmically
-if strcmp(eigenvalues_spaced, 'Equidistantly')
-mat_file_name = 'A1.mat';
-else
-mat_file_name = 'A2.mat';
-end
 
-% % our case for weighted SVD
-n = (10)^2;
-% U_1 = rand(n,1);
-% A_1 = diag(rand(n,1));
-U = load('b.mat').x;
-A = load(mat_file_name).x;
+
+n = 100;
+
+% Load from files
+%U = load('b.mat').x;
+%A = load(mat_file_name).x;
+
+% % Equidistantly spaced eigenvalues
+% A = diag(linspace(0.001, 1000, n));
+
+% Logarithmic spaced eigenvalues
+A = diag(logspace(-3, 3, 100));
+
+U = rand(n,1);
+U = U / norm(U);
 
 W = A + U*U';
 d = eig(W);
@@ -72,13 +75,13 @@ semilogy(max_rank_arr,approx_arr, 'o-r', 'LineWidth',1.5);
 hold on
 semilogy(max_rank_arr,approx_power2_arr, 'o-b', 'LineWidth',1.5);
 semilogy(max_rank_arr,approx_arr_fro, 'o-g', 'LineWidth',1.5);
-% semilogy(max_rank_arr,approx_power2_arr_fro, 'o-m', 'LineWidth',1.5);
-% semilogy(max_rank_arr,approx_power2_arr_fro/sqrt(min_eigenvalue), 'o-y', 'LineWidth',1.5);
-% semilogy(max_rank_arr,sqrt(approx_power2_arr_fro*sqrt(n)),'o-c', 'LineWidth',1.5);
-% legend('Residual sqrt in l2 norm','Residual in l2 norm', 'Residual sqrt in fro norm', 'Residual in fro norm', 'tau/sqrt(min_eigenval)', 'sqrt(sqrt(n)*tau)', 'Location','Best');
-legend('Residual sqrt in l2 norm','Residual in l2 norm','Residual sqrt in fro norm');
+semilogy(max_rank_arr,approx_power2_arr_fro, 'o-m', 'LineWidth',1.5);
+semilogy(max_rank_arr,approx_power2_arr_fro/sqrt(min_eigenvalue), 'o-y', 'LineWidth',1.5);
+semilogy(max_rank_arr,sqrt(approx_power2_arr_fro*sqrt(n)),'o-c', 'LineWidth',1.5);
+legend('Residual sqrt in l2 norm','Residual in l2 norm', 'Residual sqrt in fro norm', 'Residual in fro norm', 'tau/sqrt(min_eigenval)', 'sqrt(sqrt(n)*tau)', 'Location','Best');
 
-title([eigenvalues_spaced, ' spaced eigenvalues'])
+
+title(['Equidistantly spaced eigenvalues, min: ', num2str(min_eigenvalue)]);
 xlabel('Max rank');
 ylabel('Residual');
 
@@ -89,6 +92,7 @@ semilogy(max_rank_arr,approx_power2_arr_fro/sqrt(min_eigenvalue), '<-g', 'LineWi
 semilogy(max_rank_arr,sqrt(approx_power2_arr_fro*sqrt(n)), '>-b', 'LineWidth',1.5);
 
 legend('Residual sqrt in l2 norm','bound - tau/sqrt(min_eigenval)', 'bound - sqrt(sqrt(n)*tau)', 'Location','Best');
-title('Bounds')
+title(['Bounds with min eigenvalues: ', num2str(min_eigenvalue)]);
+
 xlabel('Max rank');
 ylabel('Residual');

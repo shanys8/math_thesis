@@ -595,7 +595,7 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
     if ~all(isfield(Xopt,{'YtFY'}) == 1)
         Xopt.YtY = Xopt.Y'*Xopt.Y;
         Xopt.FY = B*(B'*Xopt.Y);
-        Xopt.AtY = A'*Y;
+        Xopt.AtY = A'*Xopt.Y; % fixed here A'*Y
         Xopt.YtFY = Xopt.Y'*Xopt.FY;
     end
     
