@@ -16,6 +16,7 @@ n = 100;
 A = diag(logspace(-3, 3, 100));
 
 U = rand(n,1);
+%U = (U / norm(U)) * 10^-3;
 U = U / norm(U);
 
 W = A + U*U';
@@ -26,8 +27,8 @@ min_eigenvalue = min(d);
 
 %% Riemannian Algorithm
 fprintf('Riemannian approach. \n');
-min_rank = 3;
-max_rank = 6;
+min_rank = 100;
+max_rank = 100;
 max_rank_arr = linspace(min_rank,max_rank, max_rank-min_rank+1);
 approx_arr = [];
 approx_power2_arr = [];
@@ -43,7 +44,7 @@ for i=1 : length(max_rank_arr)
     %params.rmax = 50; % Maximum rank
     params.rmax = max_rank_arr(i); % Maximum rank
     params.tol_rel = 1e-6; % Stopping criterion for rank incrementating procedure
-    params.tolgradnorm = 1e-14; % Stopping for fixed-rank optimization
+    params.tolgradnorm = 1e-10; % Stopping for fixed-rank optimization
     params.maxiter = 100; % Number of iterations for fixed-rank optimization
     params.maxinner = 30; % Number of trust-region subproblems for fixed-rank optimization
     params.verbosity = 1; 2; 0; % Show output
@@ -60,6 +61,8 @@ for i=1 : length(max_rank_arr)
 
     approx_arr_fro(i) = norm(residual_sqrt, 'fro');
     approx_power2_arr_fro(i) = norm(residual, 'fro');
+    fprintf('>> tau= %f \n', norm(residual, 'fro'));
+
     
 end
 
@@ -81,7 +84,7 @@ semilogy(max_rank_arr,sqrt(approx_power2_arr_fro*sqrt(n)),'o-c', 'LineWidth',1.5
 legend('Residual sqrt in l2 norm','Residual in l2 norm', 'Residual sqrt in fro norm', 'Residual in fro norm', 'tau/sqrt(min_eigenval)', 'sqrt(sqrt(n)*tau)', 'Location','Best');
 
 
-title(['Equidistantly spaced eigenvalues, min: ', num2str(min_eigenvalue)]);
+title(['Min eigenvalue: ', num2str(min_eigenvalue)]);
 xlabel('Max rank');
 ylabel('Residual');
 
@@ -92,7 +95,7 @@ semilogy(max_rank_arr,approx_power2_arr_fro/sqrt(min_eigenvalue), '<-g', 'LineWi
 semilogy(max_rank_arr,sqrt(approx_power2_arr_fro*sqrt(n)), '>-b', 'LineWidth',1.5);
 
 legend('Residual sqrt in l2 norm','bound - tau/sqrt(min_eigenval)', 'bound - sqrt(sqrt(n)*tau)', 'Location','Best');
-title(['Bounds with min eigenvalues: ', num2str(min_eigenvalue)]);
+title(['Bounds with min eigenvalue: ', num2str(min_eigenvalue)]);
 
 xlabel('Max rank');
 ylabel('Residual');

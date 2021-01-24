@@ -264,7 +264,6 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
         Mat = [-eye(s), zeros(s, r), zeros(s, r);
             zeros(r,s),  zeros(r,r), eye(r);
             zeros(r,s), eye(r), YtFY];
-        % in Mat -YtFY instead of YtFY
         val = 0.25*(norm(Lr*Mat*Lr','fro')^2); % Stable computation
     end
     
