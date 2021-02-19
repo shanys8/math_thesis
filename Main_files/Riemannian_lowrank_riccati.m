@@ -226,12 +226,14 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
             FY = B*(B'*Y1); 
             YtFY = Y1'*FY; % YtBBtY
             YtY = Y1'*Y1;
+%             YtA = Y1'*A;
             YtAY = Y1'*AY;
             YtAAtY = Y1'*AAtY;
             CY = C*Y1;
             
             store.AY = AY;
             store.AtY = AtY;
+%             store.YtA = YtA;
             store.AAtY = AAtY;
             store.FY = FY;
             store.YtFY = YtFY;
@@ -264,7 +266,7 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
         Mat = [-eye(s), zeros(s, r), zeros(s, r);
             zeros(r,s),  zeros(r,r), eye(r);
             zeros(r,s), eye(r), YtFY];
-        % in Mat -YtFY instead of YtFY
+        % in Mat change -YtFY instead of YtFY
         val = 0.25*(norm(Lr*Mat*Lr','fro')^2); % Stable computation
     end
     
@@ -289,6 +291,14 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
         SYYtFY = SY*YtFY;
         FYYtSY = FY*(Y3'*SY);
         PY = ASY + SAtY + SYYtFY + FYYtSY;
+        
+%         % S = AtY*Y3' + Y3*YtA - Y3*(YtFY*Y3') - C'*C;  % if used S we could have change + to - in only a single place 
+%         SY = AtY*YtY + Y3*YtAY  - Y3*(YtFY*YtY) - C'*CY; % SY = S * Y3
+%         ASY = A*SY; % ASY = A * S * Y3
+%         SAtY = AtY*YtAtY + Y3*YtAAtY  - Y3*(YtFY*YtAtY) - C'*(C*AtY); % ASY = S * A' * Y3
+%         SYYtFY = SY*YtFY; % SYYtFY = S * Y3 * Y3' * FY
+%         FYYtSY = FY*(Y3'*SY); % FYYtSY = FY*(Y3'*S*Y)
+%         PY = ASY + SAtY + SYYtFY + FYYtSY;
         
         egrad.Y = PY;
         [rgrad, store]= egrad2rgrad_local(X, egrad, store);
