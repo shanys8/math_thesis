@@ -21,6 +21,7 @@ function[X, infoupdate] =  Riemannian_lowrank_riccati(A, B, C, params)
 % Contr_incbutors:
 % Change log:
 
+    global pertubation_sign
 
     if nargin == 0
         warning('No input provided! Going for a standard demo...');
@@ -117,8 +118,8 @@ function[X, infoupdate] =  Riemannian_lowrank_riccati(A, B, C, params)
         infocost = [info.cost];
         infotime = [info.time];
         costold = infocost(end);
-        infodelta = [info.Delta];
-        delta0 = infodelta(end);
+%         infodelta = [info.Delta];
+%         delta0 = infodelta(end);
         
         
         infoupdate.cost = [infoupdate.cost; costold];
@@ -159,6 +160,7 @@ end
 
 %% Residual computation
 function val= cost_computation(Y, r, A, B, C)
+    global pertubation_sign
     AtY = A'*Y;
     BtY = B'*Y;
     YtFY = (BtY)'*BtY;
@@ -168,7 +170,7 @@ function val= cost_computation(Y, r, A, B, C)
     
     Mat = [-eye(s), zeros(s, r), zeros(s, r);
         zeros(r,s),  zeros(r,r), eye(r);
-        zeros(r,s), eye(r), YtFY];
+        zeros(r,s), eye(r), pertubation_sign * YtFY];
     val = 0.25*(norm(Lr*Mat*Lr','fro')^2); % Stable computation
 end
 
@@ -187,6 +189,7 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
 % Contr_incbutors:
 % Change log:
     
+    global pertubation_sign
     %% Info to familiar notations
     m = info_input.m;
     r = info_input.r;
@@ -215,6 +218,8 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
     
     
     problem.M = symfixedrankYYfactory_riccati(m, r, add_info);
+    
+%     problem.M = euclideanfactory(m, r);
     
     %% Storing for chaching some already computed values
     function store = prepare_store(X, store)
@@ -265,8 +270,7 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
         
         Mat = [-eye(s), zeros(s, r), zeros(s, r);
             zeros(r,s),  zeros(r,r), eye(r);
-            zeros(r,s), eye(r), YtFY];
-        % in Mat change -YtFY instead of YtFY
+            zeros(r,s), eye(r), pertubation_sign * YtFY];
         val = 0.25*(norm(Lr*Mat*Lr','fro')^2); % Stable computation
     end
     
@@ -285,20 +289,22 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
         FY = store.FY;
         
         % Looks ugly here but should work out nicely on paper
-        SY = AtY*YtY + Y3*YtAY  + Y3*(YtFY*YtY) - C'*CY;
-        ASY = A*SY;
-        SAtY = AtY*YtAtY + Y3*YtAAtY  + Y3*(YtFY*YtAtY) - C'*(C*AtY);
-        SYYtFY = SY*YtFY;
-        FYYtSY = FY*(Y3'*SY);
-        PY = ASY + SAtY + SYYtFY + FYYtSY;
-        
-%         % S = AtY*Y3' + Y3*YtA - Y3*(YtFY*Y3') - C'*C;  % if used S we could have change + to - in only a single place 
-%         SY = AtY*YtY + Y3*YtAY  - Y3*(YtFY*YtY) - C'*CY; % SY = S * Y3
-%         ASY = A*SY; % ASY = A * S * Y3
-%         SAtY = AtY*YtAtY + Y3*YtAAtY  - Y3*(YtFY*YtAtY) - C'*(C*AtY); % ASY = S * A' * Y3
-%         SYYtFY = SY*YtFY; % SYYtFY = S * Y3 * Y3' * FY
-%         FYYtSY = FY*(Y3'*SY); % FYYtSY = FY*(Y3'*S*Y)
-%         PY = ASY + SAtY + SYYtFY + FYYtSY;
+        if pertubation_sign > 0
+            SY = AtY*YtY + Y3*YtAY  + Y3*(YtFY*YtY) - C'*CY;
+            ASY = A*SY;
+            SAtY = AtY*YtAtY + Y3*YtAAtY  + Y3*(YtFY*YtAtY) - C'*(C*AtY);
+            SYYtFY = SY*YtFY;
+            FYYtSY = FY*(Y3'*SY);
+            PY = ASY + SAtY + SYYtFY + FYYtSY;
+        else 
+            % S = AtY*Y3' + Y3*YtA - Y3*(YtFY*Y3') - C'*C;  % if used S we could have change + to - in only a single place 
+            SY = AtY*YtY + Y3*YtAY  - Y3*(YtFY*YtY) - C'*CY; % SY = S * Y3
+            ASY = A*SY; % ASY = A * S * Y3
+            SAtY = AtY*YtAtY + Y3*YtAAtY  - Y3*(YtFY*YtAtY) - C'*(C*AtY); % ASY = S * A' * Y3
+            SYYtFY = SY*YtFY; % SYYtFY = S * Y3 * Y3' * FY
+            FYYtSY = FY*(Y3'*SY); % FYYtSY = FY*(Y3'*S*Y)
+            PY = ASY + SAtY - SYYtFY - FYYtSY;
+        end
         
         egrad.Y = PY;
         [rgrad, store]= egrad2rgrad_local(X, egrad, store);
@@ -583,7 +589,7 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
     options.stopfun = @stopfun;
     function stop = stopfun(problem, X, info, last)
         inforel_residual = [info.rel_residual];
-        fprintf('>> stopfun - residual %f \n', inforel_residual(end));
+%         fprintf('>> stopfun - residual %f \n', inforel_residual(end));
         stop = inforel_residual(end)< tol_rel;
     end
     
@@ -601,8 +607,12 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
     options.rho_regularization = 1e3;
     options.theta = 0;
     % Pick an algorithm to solve the problem
-    [Xopt, ~, info] = trustregions(problem, X0, options);
     
+    %checkgradient(problem);
+    
+    [Xopt, ~, info] = conjugategradient(problem, X0, options);
+%     [Xopt, ~, info] = trustregions(problem, X0, options);
+
     
     % Few fields
     if ~all(isfield(Xopt,{'YtFY'}) == 1)

@@ -13,8 +13,7 @@ n = 100;
 % A = diag(linspace(0.001, 1000, n));
 
 % whether we want to solve W = A + UUt OR W = A - UUt
-global pertubation_sign
-pertubation_sign = -1;
+pertubation_sign = 1;
 
 % Logarithmic spaced eigenvalues
 A = diag(logspace(-3, 3, 100));
@@ -28,7 +27,7 @@ W = A + pertubation_sign * (U*U');
 d = eig(W);
 min_eigenvalue = min(d);
 
-ee = eig(pertubation_sign * (sqrtm(W) - sqrtm(A)));
+ee = eig(sqrtm(W) - sqrtm(A));
 
 
 
@@ -55,7 +54,7 @@ for i=1 : length(max_rank_arr)
     params.maxinner = 30; % Number of trust-region subproblems for fixed-rank optimization
     params.verbosity = 2; 1; 2; 0; % Show output
 
-    [X_Riemannian, info_Riemannian] =  Riemannian_lowrank_riccati(sqrtm(A), eye(n), U', params);
+    [X_Riemannian, info_Riemannian] =  Riemannian_lowrank_riccati(sqrtm(A), eye(n), U', pertubation_sign, params);
 
     Delta = X_Riemannian.Y * X_Riemannian.Y';
 
