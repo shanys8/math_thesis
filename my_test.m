@@ -34,8 +34,8 @@ ee = eig(pertubation_sign * (sqrtm(W) - sqrtm(A)));
 
 %% Riemannian Algorithm
 fprintf('Riemannian approach. \n');
-min_rank = 1;
-max_rank = 1;
+min_rank = 2;
+max_rank = 2;
 max_rank_arr = linspace(min_rank,max_rank, max_rank-min_rank+1);
 approx_arr = [];
 approx_power2_arr = [];
@@ -54,23 +54,29 @@ for i=1 : length(max_rank_arr)
     params.maxiter = 100; % Number of iterations for fixed-rank optimization
     params.maxinner = 30; % Number of trust-region subproblems for fixed-rank optimization
     params.verbosity = 2; 1; 2; 0; % Show output
-
-    [X_Riemannian, info_Riemannian] =  Riemannian_lowrank_riccati(sqrtm(A), eye(n), U', params);
+    
+    A_ricatti = sqrtm(A);
+    B_ricatti = eye(n);
+    C_ricatti = U';
+    [X_Riemannian, info_Riemannian] =  Riemannian_lowrank_riccati(A_ricatti, B_ricatti, C_ricatti, params);
 
     Delta = X_Riemannian.Y * X_Riemannian.Y';
-
-%     H = sqrtm(A) - Delta; % approx of sqrt(W)
+    cost = info_Riemannian.cost(end);
+    
     H = sqrtm(A) + pertubation_sign * Delta; % approx of sqrt(W)
     residual_sqrt = sqrtm(W) - H;
     residual = W - H^2;
-
+    tau = norm(residual, 'fro');
     approx_arr(i) = norm(residual_sqrt);
     approx_power2_arr(i) = norm(residual);
 
     approx_arr_fro(i) = norm(residual_sqrt, 'fro');
-    approx_power2_arr_fro(i) = norm(residual, 'fro');
-    fprintf('>> tau (residual) = %f \n', norm(residual, 'fro'));
+    approx_power2_arr_fro(i) = tau;
+    fprintf('>> tau (residual) = %f \n', tau);
+    fprintf('>> Lemma3 / Lemma 4: 0.25*tau^2   = %f \n', 0.25*tau^2);
+    fprintf('>> Lemma3 / Lemma 4: Minimal cost = %f \n', cost);
     fprintf('>> residual_sqrt = %f \n', norm(residual_sqrt, 'fro'));
+    
 
     
 end
