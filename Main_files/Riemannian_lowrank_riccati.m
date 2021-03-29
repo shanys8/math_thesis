@@ -297,7 +297,7 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
             FYYtSY = FY*(Y3'*SY);
             PY = ASY + SAtY + SYYtFY + FYYtSY;
         else 
-            % S = AtY*Y3' + Y3*YtA - Y3*(YtFY*Y3') - C'*C;  % if used S we could have change + to - in only a single place 
+            % S = AtY*Y3' + Y3*YtA - Y3*(YtFY*Y3') - C'*C;  % if used S=T5 we could have change + to - in only a single place 
             SY = AtY*YtY + Y3*YtAY  - Y3*(YtFY*YtY) - C'*CY; % SY = S * Y3
             ASY = A*SY; % ASY = A * S * Y3
             SAtY = AtY*YtAtY + Y3*YtAAtY  - Y3*(YtFY*YtAtY) - C'*(C*AtY); % ASY = S * A' * Y3
@@ -345,41 +345,85 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
         % Systematica derivation of the directional derivative of the
         % gradient
         % Looks ugly here but should work out nicely on paper
-        SY = AtY*YtY + Y4*YtAY  + Y4*(YtFY*YtY) - C'*CY; % correct
+
+        if pertubation_sign > 0
+            SY = AtY*YtY + Y4*YtAY  + Y4*(YtFY*YtY) - C'*CY; % correct
+
+            Seta = AtY*Yteta + Y4*(Y4'*Aeta)  + Y4*(YtFY*Yteta) - C'*Ceta; % correct
+
+            SdotY = AtY*(etatY) + Ateta*YtY... % correct
+                + Y4*(etatAY) + eta*(YtAY)... % correct
+                + Y4*(eta'*FY)*YtY + eta*(YtFY*YtY)... % correct
+                + Y4*(YtFY*(etatY)) + Y4*((Y4'*Feta)*YtY); % correct
+
+            SAteta = AtY*(Y4'*Ateta) + Y4*(AtY'*Ateta)  + Y4*YtFY*(Y4'*Ateta) - C'*(C*Ateta);
+
+            SdotAtY = AtY*(eta'*AtY) + Ateta*YtAtY... % correct
+                + Y4*(eta'*AAtY) + eta*(Y4'*AAtY)... % correct
+                + Y4*((eta'*FY)*YtAtY) + eta*(YtFY)*(YtAtY)... % correct
+                + Y4*(YtFY*(eta'*AtY)) + Y4*((Y4'*Feta)*(YtAtY)); % correct
+
+            % from (1): A*SdotY + A*Seta
+            % from (2): SdotAtY + SAteta
+            % from (3): SdotY*YtFY + SY*(eta'*FY) + Seta*(YtFY) + SY*(Y4'*Feta)
+            % from (4): FY*((SdotY'*Y4) + (Seta'*Y4)) + Feta*(SY'*Y4) + FY*(Y4'*Seta)
+            PdotY = A*SdotY...
+                + SdotAtY...
+                + SdotY*YtFY + SY*(eta'*FY) + Seta*(YtFY)...
+                + FY*((SdotY'*Y4) + (Seta'*Y4)) + Feta*(SY'*Y4) ;
+
+            Peta = A*Seta...
+                + SAteta...
+                + SY*(Y4'*Feta)...
+                + FY*(Y4'*Seta);
+
+            ehess.Y = PdotY + Peta;
+        else
+            SY = AtY*YtY + Y4*YtAY - Y4*(YtFY*YtY) - C'*CY; % correct
+
+            Seta = AtY*Yteta + Y4*(Y4'*Aeta) - Y4*(YtFY*Yteta) - C'*Ceta; % correct
+
+            SdotY = AtY*(etatY) + Ateta*YtY... % correct
+                + Y4*(etatAY) + eta*(YtAY)... % correct
+                - Y4*(eta'*FY)*YtY - eta*(YtFY*YtY)... % correct
+                - Y4*(YtFY*(etatY)) - Y4*((Y4'*Feta)*YtY); % correct
+
+            SAteta = AtY*(Y4'*Ateta) + Y4*(AtY'*Ateta)  - Y4*YtFY*(Y4'*Ateta) - C'*(C*Ateta);
+
+            SdotAtY = AtY*(eta'*AtY) + Ateta*YtAtY... % correct
+                + Y4*(eta'*AAtY) + eta*(Y4'*AAtY)... % correct
+                - Y4*((eta'*FY)*YtAtY) - eta*(YtFY)*(YtAtY)... % correct
+                - Y4*(YtFY*(eta'*AtY)) - Y4*((Y4'*Feta)*(YtAtY)); % correct
+
+            PdotY = A*SdotY...
+                + SdotAtY...
+                - SdotY*YtFY + SY*(eta'*FY) - Seta*(YtFY)...
+                - FY*((SdotY'*Y4) + (Seta'*Y4)) - Feta*(SY'*Y4) ;
+
+            Peta = A*Seta...
+                + SAteta...
+                - SY*(Y4'*Feta)...
+                - FY*(Y4'*Seta);
+
+            ehess.Y = PdotY + Peta;
+        end
         
-        Seta = AtY*Yteta + Y4*(Y4'*Aeta)  + Y4*(YtFY*Yteta) - C'*Ceta; % correct
-        
-        SdotY = AtY*(etatY) + Ateta*YtY... % correct
-            + Y4*(etatAY) + eta*(YtAY)... % correct
-            + Y4*(eta'*FY)*YtY + eta*(YtFY*YtY)... % correct
-            + Y4*(YtFY*(etatY)) + Y4*((Y4'*Feta)*YtY); % correct
-        
-        SAteta = AtY*(Y4'*Ateta) + Y4*(AtY'*Ateta)  + Y4*YtFY*(Y4'*Ateta) - C'*(C*Ateta);
-        
-        SdotAtY = AtY*(eta'*AtY) + Ateta*YtAtY... % correct
-            + Y4*(eta'*AAtY) + eta*(Y4'*AAtY)... % correct
-            + Y4*((eta'*FY)*YtAtY) + eta*(YtFY)*(YtAtY)... % correct
-            + Y4*(YtFY*(eta'*AtY)) + Y4*((Y4'*Feta)*(YtAtY)); % correct
-        
-        PdotY = A*SdotY...
-            + SdotAtY...
-            + SdotY*YtFY + SY*(eta'*FY) + Seta*(YtFY)...
-            + FY*((SdotY'*Y4) + (Seta'*Y4)) + Feta*(SY'*Y4) ;
-        
-        Peta = A*Seta...
-            + SAteta...
-            + SY*(Y4'*Feta)...
-            + FY*(Y4'*Seta);
-        
-        ehess.Y = PdotY + Peta;
-        
-        if ~isfield(store, 'egrad')
-            ASY = A*SY;
-            SAtY = AtY*YtAtY + Y4*YtAAtY  + Y4*(YtFY*YtAtY) - C'*(C*AtY);
-            SYYtFY = SY*YtFY;
-            FYYtSY = FY*(Y4'*SY);
-            store.egrad.Y = ASY + SAtY + SYYtFY + FYYtSY;
-            store.rgrad = problem.M.egrad2rgrad(X, store.egrad);
+        if ~isfield(store, 'egrad')  
+            if pertubation_sign > 0
+                ASY = A*SY;
+                SAtY = AtY*YtAtY + Y4*YtAAtY  + Y4*(YtFY*YtAtY) - C'*(C*AtY);
+                SYYtFY = SY*YtFY;
+                FYYtSY = FY*(Y4'*SY);
+                store.egrad.Y = ASY + SAtY + SYYtFY + FYYtSY;
+                store.rgrad = problem.M.egrad2rgrad(X, store.egrad);
+            else 
+                ASY = A*SY;
+                SAtY = AtY*YtAtY + Y4*YtAAtY  - Y4*(YtFY*YtAtY) - C'*(C*AtY);
+                SYYtFY = SY*YtFY;
+                FYYtSY = FY*(Y4'*SY);
+                store.egrad.Y = ASY + SAtY - SYYtFY - FYYtSY;
+                store.rgrad = problem.M.egrad2rgrad(X, store.egrad);
+            end
         end
         egrad = store.egrad;
         egrad.rgrad = store.rgrad; % An extra field, a small tr_incck
@@ -608,10 +652,10 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
     options.theta = 0;
     % Pick an algorithm to solve the problem
     
-    %checkgradient(problem);
-    
-    [Xopt, ~, info] = conjugategradient(problem, X0, options);
-%     [Xopt, ~, info] = trustregions(problem, X0, options);
+%    checkgradient(problem);
+     checkhessian(problem);
+%     [Xopt, ~, info] = conjugategradient(problem, X0, options);
+    [Xopt, ~, info] = trustregions(problem, X0, options);
 
     
     % Few fields

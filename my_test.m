@@ -34,8 +34,8 @@ ee = eig(pertubation_sign * (sqrtm(W) - sqrtm(A)));
 
 %% Riemannian Algorithm
 fprintf('Riemannian approach. \n');
-min_rank = 2;
-max_rank = 2;
+min_rank = 5;
+max_rank = 5;
 max_rank_arr = linspace(min_rank,max_rank, max_rank-min_rank+1);
 approx_arr = [];
 approx_power2_arr = [];
