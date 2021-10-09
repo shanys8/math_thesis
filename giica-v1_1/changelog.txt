@@ -1,0 +1,15 @@
+The first working version of giica does not have a version number.
+
+Version 1.0 (r4)
+--  Fixed the demo file demo_quasiorth.m to properly center the
+    noise-free data in accordance with the noisy ICA algorithmic
+    results.
+
+Version 1.1 (r7)
+--  This changelog is now included with the giica source distribution.
+--  Adding PEGI algorithm (for pseudo-Euclidean gradient iteration),
+    which is a new and improved algorithm intended to replace the
+    quasi-orthogonalization preprocessing step in GI-ICA.
+--  Added SINR optimal demixing option for ICA in the presence of
+    Gaussian noise (on by default when using noisy ICA methods, which
+    breaks backward compatibility).
