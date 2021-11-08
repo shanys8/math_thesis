@@ -35,7 +35,9 @@ function [Y, W, b, time_elapsed] = qwhiten_new(X)
     H = c * (H1-H2);
     
     H2_approx = approx_H2(X, W2);
-    H1_approx = approx_H1(X, W1);
+    W1_diag = get_W1_diag(v, n)
+    
+    H1_approx = approx_H1(n, X, W1_diag, v_vectors_mat);
     H_approx = c * (H1_approx - H2_approx)
     % decompose H_approx = BB^T
     % return W=B^-1, Y = W*X
@@ -63,10 +65,15 @@ function [Y, W, b, time_elapsed] = qwhiten_new(X)
 
 end
 
-function W1 = get_W1(v, n)
+function W1_diag = get_W1_diag(v, n)
     v_squred_diag = diag(power(v,2));
-    W1 = ((n-1)/power(n,2))*trace(v_squred_diag)*eye(n) + ((2*n-2)/power(n,2)) * v*v';
+    W1_diag = ((n-1)/power(n,2))*trace(v_squred_diag)*eye(n);
 end
+
+function W1_low_rank_pert = get_W1_low_rank_pert(v, n)
+    W1_low_rank_pert = ((2*n-2)/power(n,2)) * v*v';
+end
+
 
 function W2 = get_W2(v, n)
     v_squred_diag = diag(power(v,2));
@@ -82,9 +89,26 @@ function H2_approx = approx_H2(X, W2)
 end
 
 
-function H1_approx = approx_H1(X, W1)
-    % sqrt of diagonal matrix + low rank pertubation as W^1/2 using ricatti and sketching
+function H1_approx = approx_H1(n, X, W1_diag, v_vectors_mat)
+    W1_diag_sqrt = sqrtm(W1_diag) % is there a more efficient way? sqrt of diag entries?
+%     W1_low_rank = v_vectors_mat * v_vectors_mat';
+    % ricatti
+    A_ricatti = W1_diag_sqrt;
+    B_ricatti = eye(n);
+    C_ricatti = v_vectors_mat';
+    
+    % need to get it work from here
+    [X_Riemannian, info_Riemannian] =  Riemannian_lowrank_riccati(A_ricatti, B_ricatti, C_ricatti, params);
+
+    Delta = X_Riemannian.Y * X_Riemannian.Y';
+    
+    sqrt_W1_approx = W1_diag_sqrt + ((2*n-2)/power(n,2)) * Delta;
+    Z = sqrt_W1_approx * X;
+    % sketching ...
+    H1_approx = Z' * Z;
 end
+
+
 
 
 

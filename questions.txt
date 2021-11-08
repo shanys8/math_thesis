@@ -1,0 +1,4 @@
+1. show experiments, general iterations wont work
+2. in experiment for each n we sample new s1,s2,..sn - is this right?
+3. cant run experiment with n > 10^4 - matrix to large error
+4. need to create demo for my quasi whitening, need to send also A in order to calc AD_A(u)A'

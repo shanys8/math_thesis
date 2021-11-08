@@ -35,6 +35,7 @@ function [Y, W, b, time_elapsed] = qwhiten(X, op)
         C = cov(X');
         W = C^(-0.5);
         Y = W * X;
+        time_elapsed = toc(qwhiten_start);
         return
     end
     

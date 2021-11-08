@@ -252,9 +252,10 @@ function [S, W, A, b, totalSteps] = ICA_Implementation(...
     end
     fprintf('end ICA')
     timeElapsed = toc(t_start_ica);
-    fprintf('\nQuasi Orthogonoalization Runtime: %d \n', qwhiten_time_elapsed);
     fprintf('ICA Runtime: %d \n', timeElapsed);
-    fprintf('Quasi Orthogonoalization: %.2f percent of total runtime \n', 100*qwhiten_time_elapsed/timeElapsed)
+    if strcmp(preprocessingChoice, 'quasi-orthogonalize')
+        fprintf('\nQuasi Orthogonoalization Runtime: %d : %.2f percent of total runtime \n', qwhiten_time_elapsed, 100*qwhiten_time_elapsed/timeElapsed);
+    end
 
 end
 

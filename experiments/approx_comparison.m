@@ -85,9 +85,8 @@ function diff = get_diff(n, d, A, m)
         H = H + X'*W*X;
     end
     
-    H = c * H; % approx hessian value
-    B = A*D_A_u*A'; % True hesian value
-%     disp(['diff for n= ', num2str(n), ' is: ', num2str(diff), ' \n']);
+    H = c * H; % approx hessian value - W cummulative with multiple v
+    B = A*D_A_u*A'; % True hesian value - D_A_u cummulative with multiple u
     diff = get_diff_norm(B, H);
 end
 
