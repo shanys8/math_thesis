@@ -95,14 +95,14 @@ function H1_approx = approx_H1(n, X, W1_diag, v_vectors_mat)
     % ricatti
     A_ricatti = W1_diag_sqrt;
     B_ricatti = eye(n);
-    C_ricatti = v_vectors_mat';
+    C_ricatti = sqrt(((2*n-2)/power(n,2))) * v_vectors_mat';
     
     % need to get it work from here
     [X_Riemannian, info_Riemannian] =  Riemannian_lowrank_riccati(A_ricatti, B_ricatti, C_ricatti, params);
 
     Delta = X_Riemannian.Y * X_Riemannian.Y';
     
-    sqrt_W1_approx = W1_diag_sqrt + ((2*n-2)/power(n,2)) * Delta;
+    sqrt_W1_approx = W1_diag_sqrt + Delta;
     Z = sqrt_W1_approx * X;
     % sketching ...
     H1_approx = Z' * Z;

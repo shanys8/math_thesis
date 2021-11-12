@@ -10,16 +10,45 @@ A = rand(d, d); % ICA demixing matrix
 
 print_noise(with_noise)
 
+% iterate over num of samples (10^val)
 min_n = 2;
-max_n = 7; 
-min_m = 1;
-max_m = 2;
-[n_choices, m_choices] = get_params(min_n, max_n, min_m, max_m);
+max_n = 7; % more than 4 raise error - too big
+n_choices = logspace(min_n, max_n, max_n-min_n + 1);
 
 S = rand(d, 10^max_n);
 
+% iterate over num of random vectors u to use
+min_m = 1;
+max_m = 3;
+m_choices = linspace(min_m, max_m, max_m-min_m + 1);
+
+
 plot_graphs(m_choices, n_choices, d, A, S)
 
+ca = cell(1, length(m_choices));
+CM = jet(length(m_choices)); 
+
+for m = m_choices
+    ca{m} = sprintf('m=%d', m);
+    values = [];
+    for n = n_choices
+        curr_diff = get_diff(n, d, A, S(:,1:n), m);
+        disp(['diff for n=', num2str(n), ' m=', num2str(m), ' is: ', num2str(curr_diff)]);
+        values(end+1) = curr_diff;
+    end
+    
+    hold on;
+    plot(n_choices, values, '-', 'Color', CM(m,:), 'LineWidth',2)
+    grid on;    
+end
+
+title('Results','FontSize',16)
+ylabel('Diff - approx. vs. true value in fro norm')
+xlabel('num of samples')
+ax = gca;
+set(gca, 'XScale', 'log')
+ax.XAxisLocation = 'origin';
+legend(ca, 'Location', 'southwest')
 % ------------------------- END ------------------------- %
 
 
@@ -84,42 +113,6 @@ function print_noise(with_noise)
     end
 end
 
-
-function plot_graphs(m_choices, n_choices, d, A, S)
-    ca = cell(1, length(m_choices));
-    CM = jet(length(m_choices)); 
-
-    for m = m_choices
-        ca{m} = sprintf('m=%d', m);
-        values = [];
-        for n = n_choices
-            curr_diff = get_diff(n, d, A, S(:,1:n), m);
-            disp(['diff for n=10^', num2str(log10(n)), ' m=', num2str(m), ' is: ', num2str(curr_diff)]);
-            values(end+1) = curr_diff;
-        end
-
-        hold on;
-        plot(n_choices, values, '-', 'Color', CM(m,:), 'LineWidth',2)
-        grid on;    
-    end
-
-    title('Results','FontSize',16)
-    ylabel('Diff - approx. vs. true value in fro norm')
-    xlabel('num of samples')
-    ax = gca;
-    set(gca, 'XScale', 'log')
-    ax.XAxisLocation = 'origin';
-    legend(ca, 'Location', 'southwest')
-end
-
 % multiply diag with X is diag(d).*X
 % check W with minus and plus
 
-
-function [n_choices, m_choices] = get_params(min_n, max_n, min_m, max_m)
-    % iterate over num of samples (10^val)
-    n_choices = logspace(min_n, max_n, max_n-min_n + 1);
-
-    % iterate over num of random vectors u to use
-    m_choices = linspace(min_m, max_m, max_m-min_m + 1);
-end
