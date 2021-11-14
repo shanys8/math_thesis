@@ -30,29 +30,52 @@ function [Y, W, b, time_elapsed] = qwhiten(X, op)
     b = mean(X, 2);
     % X = X - repmat(b, 1, n);
     X = bsxfun(@minus, X, b);
-    
-    if strcmp( op, 'whiten' )
-        C = cov(X');
-        W = C^(-0.5);
-        Y = W * X;
-        time_elapsed = toc(qwhiten_start);
-        return
-    end
-    
+ 
     % Generate the initial hessian / cumulant tensor matrix.
     XXt = X*X';  % Compute in order to (unnoticeably) increase hessian efficiency.
-    if strcmp( op, 'id quas-orth' )
-        step1_start = tic;
-        for i = 1:d
-            u = canonvec(i, d);
-            C = C + cum4hes(X, u, XXt);
-        end
-        C = C / 12;  % Division by 12 makes this equivalent to a change of variable in the fourth cumulant tensor techniques.
-        step1_time_elapsed = toc(step1_start);
-    else
-        fprintf(2, ['ERROR:  Invalid option flag:  ' op]);
-        return
+    switch op
+        case 'whiten'
+            C = cov(X');
+            W = C^(-0.5);
+            Y = W * X;
+            time_elapsed = toc(qwhiten_start);
+            return
+        case 'id quas-orth' 
+            step1_start = tic;
+            for i = 1:d
+                u = canonvec(i, d);
+                C = C + cum4hes(X, u, XXt);
+            end
+            C = C / 12;  % Division by 12 makes this equivalent to a change of variable in the fourth cumulant tensor techniques.
+            step1_time_elapsed = toc(step1_start);
+        case 'quasi whiten' 
+            step1_start = tic;
+            use_canonical_vec = 0;
+%             XtX = X' * X;
+            if use_canonical_vec
+                for i = 1:d
+                    u = canonvec(i, d);
+                    C = C + cum4hes_approx(X', u, XXt);
+                end
+            else
+                m = 2;
+                % Transpose X so that rows are samples.
+                v_vectors_mat = zeros(n,m);
+                for i = 1:m
+                    u = get_u(d);
+                    v = X*u;
+                    v_vectors_mat(:,i) = v';
+                    C = C + cum4hes_approx(X', u, v, XXt);
+                end
+            end
+            C = C / 12;  % Division by 12 makes this equivalent to a change of variable in the fourth cumulant tensor techniques.
+            step1_time_elapsed = toc(step1_start);
+        otherwise
+            fprintf(2, ['ERROR:  Invalid option flag:  ' op]);
+            return
     end
+            
+
 
     % Inversion and second step of the quasi-whitening.
     step2_start = tic;
@@ -116,6 +139,42 @@ function timestamp = get_curr_ts()
     ds = datestr(n);
     dt = datetime(ds);
     timestamp = posixtime(dt);
+end
+
+function u = get_u(d)
+    u = randn(d, 1); 
+    u = u / norm(u);
+end
+
+
+
+%% ideas of how to approximate H2 and H1 throughout the m iterations
+function H2_approx = approx_H2(X, W2)
+    % sqrt of diagonal matrix as W^1/2 and sketching
+    sqrt_W2 = sqrtm(W2);
+    Z = sqrt_W2 * X;
+    % sketching ...
+    H2_approx = Z' * Z;
+end
+
+
+function H1_approx = approx_H1(n, X, W1_diag, v_vectors_mat)
+    W1_diag_sqrt = sqrtm(W1_diag) % is there a more efficient way? sqrt of diag entries?
+%     W1_low_rank = v_vectors_mat * v_vectors_mat';
+    % ricatti
+    A_ricatti = W1_diag_sqrt;
+    B_ricatti = eye(n);
+    C_ricatti = sqrt(((2*n-2)/power(n,2))) * v_vectors_mat';
+    
+    % need to get it work from here
+    [X_Riemannian, info_Riemannian] =  Riemannian_lowrank_riccati(A_ricatti, B_ricatti, C_ricatti, params);
+
+    Delta = X_Riemannian.Y * X_Riemannian.Y';
+    
+    sqrt_W1_approx = W1_diag_sqrt + Delta;
+    Z = sqrt_W1_approx * X;
+    % sketching ...
+    H1_approx = Z' * Z;
 end
 
 

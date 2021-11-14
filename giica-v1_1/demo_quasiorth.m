@@ -42,6 +42,18 @@ function demo_quasiorth()
     axis('equal');
     legend('Noisy Data', 'Clean Data');
 
+    
+    [Y2, W, b] = qwhiten(X2, 'quasi whiten');
+    Y = W*(X-repmat(b, 1, size(X, 2)));
+    [Q, R] = qr(W*A)
+    figure(2);
+    plot(Y2(1, :), Y2(2, :), 'g+', Y(1, :), Y(2, :), 'k.');
+    title('Data after applying quasi-whitening approx based on the noisy data.');
+%     axis('square');
+    axis('equal');
+    legend('Noisy Data', 'Clean Data');
+    
+    
     [Y2, W, b] = qwhiten(X2, 'id quas-orth');
     Y = W*(X-repmat(b, 1, size(X, 2)));
     [Q, R] = qr(W*A)

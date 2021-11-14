@@ -11,9 +11,9 @@ A = randn(d, d); % ICA demixing matrix
 print_noise(with_noise)
 
 min_n = 2;
-max_n = 7; 
+max_n = 7; % 10^7 is the max dim possible to run
 min_m = 1;
-max_m = 3;
+max_m = 5;
 [n_choices, m_choices] = get_params(min_n, max_n, min_m, max_m);
 
 % Generate latent and samples
@@ -29,23 +29,6 @@ plot_graphs(m_choices, n_choices, d, A, S)
 
 % ----------------------- METHODS ----------------------- %
 
-function W = get_W(v, n)
-    v_squred_diag = diag(power(v,2));
-    % divide into H1, H2
-    W = ((n-1)/power(n,2))*trace(v_squred_diag)*eye(n) - ((n+1)/n) * v_squred_diag + ((2*n-2)/power(n,2)) * v*v';
-end
-
-function W_diag = get_W_diag_part(v, n)
-    v_squared = v.^2;
-    W_diag = ((n-1)/(n*n))*sum(v_squared)*ones(size(v)) - ((n+1)/n) * v_squared;
-    
-    % this ((n-1)/power(n,2))*sum(v_squared)*ones(size(v)) should be
-    % multiply with XXt by cum4hes
-end
-
-function W_low_rank = get_W_low_rank(v, n)
-    W_low_rank = (sqrt(2*n-2)/n) * v;
-end
 
 % diagnonal in which the kth entry is 24(Ak · u)^2 when Ak is the kth
 % column of A - this is correct
@@ -71,6 +54,10 @@ function H2 = get_H2(n, XtvX)
     H2 = ((n+1)/n) * XtvX ;
 end
 
+function u = get_u(d)
+    u = randn(d, 1); 
+    u = u / norm(u);
+end
 
 function diff = get_diff(n, d, A, S, m)
     c = 12*(n*n) / ((n-1)*(n-2)*(n-3));
@@ -82,23 +69,31 @@ function diff = get_diff(n, d, A, S, m)
     XtX = X' * X;
 
     for i = 1:m
-        u = randn(d, 1); u = u / norm(u); % we didnt assume norm 1
+        u = get_u(d); % we didnt assume norm 1 and that changes results very much
         DAu = DAu + get_DAu(A,u);
-        
         v = X*u;
         dvX = v .* X;
         XtvX = dvX' * dvX;
         vtX = v' * X;
-        
         H1 = H1 + get_H1_diag(n, v, XtX)  +  get_H1_low_rank_pert(n, vtX);
         H2 = H2 + get_H2(n, XtvX);
-
-
     end
+    
+% % canonical u vector version
+%     for i = 1:d
+%         u = canonvec(i, d);
+%         DAu = DAu + get_DAu(A,u);
+%         v = X*u;
+%         dvX = v .* X;
+%         XtvX = dvX' * dvX;
+%         vtX = v' * X;
+%         H1 = H1 + get_H1_diag(n, v, XtX)  +  get_H1_low_rank_pert(n, vtX);
+%         H2 = H2 + get_H2(n, XtvX);
+%     end
         
     H_approx = c * (H1-H2); % approx hessian value - W cummulative with multiple v
     H_true = A*DAu*A'; % True hesian value - DAu cummulative with multiple u
-
+    
     diff = get_diff_norm(H_true, H_approx);
 end
 
@@ -150,3 +145,26 @@ function [n_choices, m_choices] = get_params(min_n, max_n, min_m, max_m)
     % iterate over num of random vectors u to use
     m_choices = linspace(min_m, max_m, max_m-min_m + 1);
 end
+
+function ei = canonvec(i, dim)
+%   function ei = canonvec(i, dim)
+%   Produces the ith canonical vector in a dim dimensional space.
+    ei = zeros(dim, 1);
+    ei(i) = 1;
+end
+
+
+% function W = get_W(v, n)
+%     v_squred_diag = diag(power(v,2));
+%     % divide into H1, H2
+%     W = ((n-1)/power(n,2))*trace(v_squred_diag)*eye(n) - ((n+1)/n) * v_squred_diag + ((2*n-2)/power(n,2)) * v*v';
+% end
+% 
+% function W_diag = get_W_diag_part(v, n)
+%     v_squared = v.^2;
+%     W_diag = ((n-1)/(n*n))*sum(v_squared)*ones(size(v)) - ((n+1)/n) * v_squared;
+% end
+% 
+% function W_low_rank = get_W_low_rank(v, n)
+%     W_low_rank = (sqrt(2*n-2)/n) * v;
+% end
