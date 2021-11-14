@@ -5,18 +5,20 @@ RandStream.setGlobalStream(RandStream('mt19937ar','seed', 1));  % fixed seed
 
 % General values
 with_noise = false;
-d = 5; % dimension
-A = rand(d, d); % ICA demixing matrix
+d = 10; % dimension
+A = randn(d, d); % ICA demixing matrix
 
 print_noise(with_noise)
 
 min_n = 2;
 max_n = 7; 
 min_m = 1;
-max_m = 2;
+max_m = 3;
 [n_choices, m_choices] = get_params(min_n, max_n, min_m, max_m);
 
-S = rand(d, 10^max_n);
+% Generate latent and samples
+S = sign(randn(d, 10^max_n));
+% S = rand(d, 10^max_n); 
 
 plot_graphs(m_choices, n_choices, d, A, S)
 
@@ -34,8 +36,11 @@ function W = get_W(v, n)
 end
 
 function W_diag = get_W_diag_part(v, n)
-    v_squared = power(v,2);
-    W_diag = ((n-1)/power(n,2))*sum(v_squared)*ones(size(v)) - ((n+1)/n) * v_squared;
+    v_squared = v.^2;
+    W_diag = ((n-1)/(n*n))*sum(v_squared)*ones(size(v)) - ((n+1)/n) * v_squared;
+    
+    % this ((n-1)/power(n,2))*sum(v_squared)*ones(size(v)) should be
+    % multiply with XXt by cum4hes
 end
 
 function W_low_rank = get_W_low_rank(v, n)
@@ -44,8 +49,9 @@ end
 
 % diagnonal in which the kth entry is 24(Ak · u)^2 when Ak is the kth
 % column of A - this is correct
-function D_A_u = get_D_A_u(A,u)
-    D_A_u = diag(24*power(A'*u,2)); 
+function DAu = get_DAu(A,u)
+    Atu = A' * u;
+    DAu = diag(24 * Atu .* Atu);
 end
 
 % frobinous norm diff between true value B and approx. value H
@@ -53,26 +59,47 @@ function diff = get_diff_norm(B, H)
     diff = norm(H-B, 'fro');
 end
 
+function H1_diag = get_H1_diag(n, v, XtX)
+    H1_diag = ((n-1)/(n*n)) * sum(v.^2) * XtX;
+end
+
+function H1_low_rank_pert = get_H1_low_rank_pert(n, vtX)
+    H1_low_rank_pert = ((2*n-2)/(n*n)) * (vtX' * vtX);
+end
+
+function H2 = get_H2(n, XtvX)
+    H2 = ((n+1)/n) * XtvX ;
+end
+
+
 function diff = get_diff(n, d, A, S, m)
-    c = 12*n^2 / ((n-1)*(n-2)*(n-3));
-%     S = rand(d, n);
+    c = 12*(n*n) / ((n-1)*(n-2)*(n-3));
+
+    % Transpose so that rows are samples.
     X = (A*S)';
-    H = 0; 
-    D_A_u = 0 ;
+    H1 = 0; H2 = 0;
+    DAu = 0 ;
+    XtX = X' * X;
+
     for i = 1:m
-        u = randn(d,1);
-        D_A_u = D_A_u + get_D_A_u(A,u);
+        u = randn(d, 1); u = u / norm(u); % we didnt assume norm 1
+        DAu = DAu + get_DAu(A,u);
+        
         v = X*u;
-%         W = get_W(v, n);
-        W_diag = get_W_diag_part(v, n);
-        W_low_rank = get_W_low_rank(v, n);
-        WdotX = W_diag.*X + W_low_rank * (W_low_rank' * X);
-        H = H + X' * WdotX;
+        dvX = v .* X;
+        XtvX = dvX' * dvX;
+        vtX = v' * X;
+        
+        H1 = H1 + get_H1_diag(n, v, XtX)  +  get_H1_low_rank_pert(n, vtX);
+        H2 = H2 + get_H2(n, XtvX);
+
+
     end
-    
-    H = c * H; % approx hessian value - W cummulative with multiple v
-    B = A*D_A_u*A'; % True hesian value - D_A_u cummulative with multiple u
-    diff = get_diff_norm(B, H);
+        
+    H_approx = c * (H1-H2); % approx hessian value - W cummulative with multiple v
+    H_true = A*DAu*A'; % True hesian value - DAu cummulative with multiple u
+
+    diff = get_diff_norm(H_true, H_approx);
 end
 
 
