@@ -7,7 +7,7 @@ function [Y, W, b, time_elapsed] = qwhiten(X, op)
 %   sample of the linearly mixed observations.  The number of columns gives
 %   the number of samples.
 %
-%   op -- 'whiten', 'id quas-orth'.  The "identity" based
+%   op -- 'whiten', 'id quas-orth', 'quasi whiten'.  The "identity" based
 %   algorithm is deterministic in nature, but requires more operations
 %   than "random" (the time difference is a constant factor).  Both
 %   "identity" and "random" are quasi-whitening algorithms robust to
@@ -55,15 +55,16 @@ function [Y, W, b, time_elapsed] = qwhiten(X, op)
             if use_canonical_vec
                 for i = 1:d
                     u = canonvec(i, d);
-                    C = C + cum4hes_approx(X', u, XXt);
+                    v = X'*u;
+                    C = C + cum4hes_approx(X', u, v, XXt);
                 end
-            else
-                m = 2;
+            else % u is a unit random vector
+                m = 1;
                 % Transpose X so that rows are samples.
                 v_vectors_mat = zeros(n,m);
                 for i = 1:m
                     u = get_u(d);
-                    v = X*u;
+                    v = X'*u;
                     v_vectors_mat(:,i) = v';
                     C = C + cum4hes_approx(X', u, v, XXt);
                 end

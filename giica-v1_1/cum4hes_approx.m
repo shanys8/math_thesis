@@ -1,4 +1,4 @@
-% function H = cum4hes(X, u, v, XtX)
+% function H = cum4hes_approx(X, u, v, XtX)
 % H -- Returned hessian matrix.
 % X -- Matrix where each column represents a data point.  The data is
 %      assumed to be centered (i.e., mean subtracted).
@@ -13,7 +13,7 @@
 % being sampled.  Here, k_4 is the fourth k-statistic estimate to the
 % fourth cumulant.
 
-function H = cum4hes_approx(X, u, XtX)
+function H = cum4hes_approx(X, u, v, XtX)
     if ~exist('XtX', 'var')
         XtX = X'*X;
     end

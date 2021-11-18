@@ -1,4 +1,5 @@
-1. show experiments, general iterations work, m >> does not improve results
+1. show experiments, general iterations work, forgot that S should be +1/-1, m >> does not improve results
 2. cant run experiment with n > 10^7 - matrix to large error
 3. run demo with d=2 and quasi whitening matrix show negative eignvalues with m=1
+4. step 3 meaning in qwhiten.m?
 4. where to separate to H1, H2 in order for us to be able to approximate - H2 by Z=sqrt(D)*X, H1 by ricatti with D + VV' where V = sqrt(2n-2 / n*n)* [v1,v2,..vm]
