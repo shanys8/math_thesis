@@ -57,7 +57,7 @@ function demo_quasiorth()
     [Y2, W, b] = qwhiten(X2, 'id quas-orth');
     Y = W*(X-repmat(b, 1, size(X, 2)));
     [Q, R] = qr(W*A)
-    figure(2);
+    figure(3);
     plot(Y2(1, :), Y2(2, :), 'g+', Y(1, :), Y(2, :), 'k.');
     title('Data after applying quasi-orthogonalization based on the noisy data.');
 %     axis('square');
@@ -67,7 +67,7 @@ function demo_quasiorth()
     [Y2, W, b] = qwhiten(X2, 'whiten');
     [Q, R] = qr(W*A)
     Y = W*(X-repmat(b, 1, size(X, 2)));
-    figure(3);
+    figure(4);
     plot(Y2(1, :), Y2(2, :), 'g+', Y(1,:), Y(2,:), 'k.');
     title('Applied standard whitening based on the noisy data.');
 %     axis('square');

@@ -39,38 +39,66 @@ function [Y, W, b, time_elapsed] = qwhiten(X, op)
             W = C^(-0.5);
             Y = W * X;
             time_elapsed = toc(qwhiten_start);
+            print_time_elapsed(qwhiten_start, op);
             return
         case 'id quas-orth' 
-            step1_start = tic;
             for i = 1:d
                 u = canonvec(i, d);
                 C = C + cum4hes(X, u, XXt);
             end
             C = C / 12;  % Division by 12 makes this equivalent to a change of variable in the fourth cumulant tensor techniques.
-            step1_time_elapsed = toc(step1_start);
-        case 'quasi whiten' 
-            step1_start = tic;
-            use_canonical_vec = 0;
-%             XtX = X' * X;
-            if use_canonical_vec
-                for i = 1:d
-                    u = canonvec(i, d);
-                    v = X'*u;
-                    C = C + cum4hes_approx(X', u, v, XXt);
-                end
-            else % u is a unit random vector
-                m = 1;
-                % Transpose X so that rows are samples.
-                v_vectors_mat = zeros(n,m);
-                for i = 1:m
-                    u = get_u(d);
-                    v = X'*u;
-                    v_vectors_mat(:,i) = v';
-                    C = C + cum4hes_approx(X', u, v, XXt);
-                end
+                % Inversion and second step of the quasi-whitening.
+            C2 = zeros(d);
+            [U, D] = eig(C);
+            % will be using the inverse of C, and placing half of the effect of D
+            % in the U vectors.
+
+            for i = 1:d
+                C2 = C2 + (1/D(i, i))*cum4hes(X, U(:, i), XXt);
             end
-            C = C / 12;  % Division by 12 makes this equivalent to a change of variable in the fourth cumulant tensor techniques.
-            step1_time_elapsed = toc(step1_start);
+            C2 = C2 / 12;
+
+           [U, Lambda] = eig(C2);
+           len = size(Lambda, 1);
+           Lambda_mask = (diag(Lambda) > 0);
+           if (sum(Lambda_mask) < len)
+               warning(['Decomposition matrix for quasi-orthogonalization is not positive definite.  ' ...
+                   'Ignoring negative eigenvalue directions.  Output could very easily be bogus.  ' ...
+                   'Standard whitening may provide better results.']);
+               Lambda(1:len+1:end) = Lambda * Lambda_mask;
+               W = pinv(Lambda)^(1/2) * U';
+           else
+               W = Lambda^(-1/2)*U';
+           end
+           Y = W*X;
+           print_time_elapsed(qwhiten_start, op)
+           return
+        case 'quasi whiten' 
+            m = 1;
+            % Transpose X so that rows are samples.
+            v_vectors_mat = zeros(n,m);
+            for i = 1:m
+                u = get_u(d);
+                v = X'*u;
+                v_vectors_mat(:,i) = v';
+                C = C + cum4hes_approx(X', u, v, XXt);
+            end
+            
+           [U, Lambda] = eig(C);
+           len = size(Lambda, 1);
+           Lambda_mask = (diag(Lambda) > 0);
+           if (sum(Lambda_mask) < len)
+               warning(['Decomposition matrix for quasi-orthogonalization is not positive definite.  ' ...
+                   'Ignoring negative eigenvalue directions.  Output could very easily be bogus.  ' ...
+                   'Standard whitening may provide better results.']);
+               Lambda(1:len+1:end) = Lambda * Lambda_mask;
+               W = pinv(Lambda)^(1/2) * U';
+           else
+               W = Lambda^(-1/2)*U';
+           end
+           Y = W*X;
+           print_time_elapsed(qwhiten_start, op)
+           return
         otherwise
             fprintf(2, ['ERROR:  Invalid option flag:  ' op]);
             return
@@ -78,46 +106,6 @@ function [Y, W, b, time_elapsed] = qwhiten(X, op)
             
 
 
-    % Inversion and second step of the quasi-whitening.
-    step2_start = tic;
-    C2 = zeros(d);
-    [U, D] = eig(C);
-    step2_time_elapsed = toc(step2_start);
-    % will be using the inverse of C, and placing half of the effect of D
-    % in the U vectors.
-    
-    step3_start = tic;
-    for i = 1:d
-        C2 = C2 + (1/D(i, i))*cum4hes(X, U(:, i), XXt);
-    end
-    C2 = C2 / 12;
-    step3_time_elapsed = toc(step3_start);
-    
-   step4_start = tic;
-   [U, Lambda] = eig(C2);
-   step4_time_elapsed = toc(step4_start);
-   len = size(Lambda, 1);
-   Lambda_mask = (diag(Lambda) > 0);
-   if (sum(Lambda_mask) < len)
-       warning(['Decomposition matrix for quasi-orthogonalization is not positive definite.  ' ...
-           'Ignoring negative eigenvalue directions.  Output could very easily be bogus.  ' ...
-           'Standard whitening may provide better results.']);
-       Lambda
-       Lambda(1:len+1:end) = Lambda * Lambda_mask;
-       W = pinv(Lambda)^(1/2) * U';
-   else
-       W = Lambda^(-1/2)*U';
-   end
-    Y = W*X;
-    time_elapsed = toc(qwhiten_start);
-    
-    fprintf('Quasi Orthogonalization: \n');
-    fprintf('step1_time_elapsed (Cumulant): %d \n', step1_time_elapsed);
-    fprintf('step2_time_elapsed: %d \n', step2_time_elapsed);
-    fprintf('step3_time_elapsed (Cumulant): %d \n', step1_time_elapsed);
-    fprintf('step4_time_elapsed: %d \n', step4_time_elapsed);
-    fprintf('Total Runtime: %d \n', time_elapsed);
-    fprintf('Step 1+3 of total Runtime: %.2f percent\n', 100*(step1_time_elapsed+step3_time_elapsed)/time_elapsed);
 
 
 end
@@ -144,7 +132,7 @@ end
 
 function u = get_u(d)
     u = randn(d, 1); 
-    u = u / norm(u);
+%     u = u / norm(u);
 end
 
 
@@ -178,6 +166,11 @@ function H1_approx = approx_H1(n, X, W1_diag, v_vectors_mat)
     H1_approx = Z' * Z;
 end
 
+
+function print_time_elapsed(qwhiten_start, op)
+    time_elapsed = toc(qwhiten_start);
+    fprintf('Total Runtime of %s: %d \n', op, time_elapsed);
+end
 
 
 

@@ -17,7 +17,6 @@ function H = cum4hes_approx(X, u, v, XtX)
     if ~exist('XtX', 'var')
         XtX = X'*X;
     end
-    %% compute the unbiased estimator
     [n, d] = size(X);
 
     c = 12*(n*n) / ((n-1)*(n-2)*(n-3));

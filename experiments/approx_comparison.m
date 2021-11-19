@@ -5,20 +5,21 @@ RandStream.setGlobalStream(RandStream('mt19937ar','seed', 1));  % fixed seed
 
 % General values
 with_noise = false;
-d = 10; % dimension
+d = 20; % dimension
 A = randn(d, d); % ICA demixing matrix
 
 print_noise(with_noise)
 
-min_n = 2;
+min_n = 7;
 max_n = 7; % 10^7 is the max dim possible to run
 min_m = 1;
-max_m = 5;
-[n_choices, m_choices] = get_params(min_n, max_n, min_m, max_m);
+max_m = 1;
+m_steps = 1;
+[n_choices, m_choices] = get_params(min_n, max_n, min_m, max_m, m_steps);
+% m_choices = 1:10:30;
 
 % Generate latent and samples
 S = sign(randn(d, 10^max_n));
-% S = rand(d, 10^max_n); 
 
 plot_graphs(m_choices, n_choices, d, A, S)
 
@@ -37,9 +38,10 @@ function DAu = get_DAu(A,u)
     DAu = diag(24 * Atu .* Atu);
 end
 
-% frobinous norm diff between true value B and approx. value H
-function diff = get_diff_norm(B, H)
-    diff = norm(H-B, 'fro');
+% frobinous norm diff between true value approx. relative to true value
+% norm
+function diff = get_diff_norm(H_true, H_approx)
+    diff = norm(H_approx-H_true, 'fro') / norm(H_true, 'fro');
 end
 
 function H1_diag = get_H1_diag(n, v, XtX)
@@ -56,41 +58,33 @@ end
 
 function u = get_u(d)
     u = randn(d, 1); 
-    u = u / norm(u);
+%     u = u / norm(u);
+%     u = u / sqrt(d);
 end
 
 function diff = get_diff(n, d, A, S, m)
-    c = 12*(n*n) / ((n-1)*(n-2)*(n-3));
 
+    c = 12*(n*n) / ((n-1)*(n-2)*(n-3));
     % Transpose so that rows are samples.
-    X = (A*S)';
+    step1 = tic;
+    X = (A*S)'; % highest runtime
+    fprintf('Runtime of X = (A*S)t %d \n', toc(step1));
     H1 = 0; H2 = 0;
     DAu = 0 ;
-    XtX = X' * X;
-
+    step2 = tic;
+    XtX = X' * X; % also need improve
+    fprintf('Runtime of XtX %d \n', toc(step2));
     for i = 1:m
-        u = get_u(d); % we didnt assume norm 1 and that changes results very much
+        u = get_u(d);
         DAu = DAu + get_DAu(A,u);
         v = X*u;
         dvX = v .* X;
-        XtvX = dvX' * dvX;
-        vtX = v' * X;
+        XtvX = dvX' * dvX;     
+        vtX = v' * X;       
         H1 = H1 + get_H1_diag(n, v, XtX)  +  get_H1_low_rank_pert(n, vtX);
         H2 = H2 + get_H2(n, XtvX);
     end
     
-% % canonical u vector version
-%     for i = 1:d
-%         u = canonvec(i, d);
-%         DAu = DAu + get_DAu(A,u);
-%         v = X*u;
-%         dvX = v .* X;
-%         XtvX = dvX' * dvX;
-%         vtX = v' * X;
-%         H1 = H1 + get_H1_diag(n, v, XtX)  +  get_H1_low_rank_pert(n, vtX);
-%         H2 = H2 + get_H2(n, XtvX);
-%     end
-        
     H_approx = c * (H1-H2); % approx hessian value - W cummulative with multiple v
     H_true = A*DAu*A'; % True hesian value - DAu cummulative with multiple u
     
@@ -111,8 +105,9 @@ function plot_graphs(m_choices, n_choices, d, A, S)
     ca = cell(1, length(m_choices));
     CM = jet(length(m_choices)); 
 
-    for m = m_choices
-        ca{m} = sprintf('m=%d', m);
+    for j = 1:length(m_choices)
+        m = m_choices(j);
+        ca{j} = sprintf('m=%d', m);
         values = [];
         for n = n_choices
             curr_diff = get_diff(n, d, A, S(:,1:n), m);
@@ -121,7 +116,7 @@ function plot_graphs(m_choices, n_choices, d, A, S)
         end
 
         hold on;
-        plot(n_choices, values, '-', 'Color', CM(m,:), 'LineWidth',2)
+        plot(n_choices, values, '-', 'Color', CM(j,:), 'LineWidth',2)
         grid on;    
     end
 
@@ -131,6 +126,8 @@ function plot_graphs(m_choices, n_choices, d, A, S)
     ax = gca;
     set(gca, 'XScale', 'log')
     ax.XAxisLocation = 'origin';
+    set(gca, 'YScale', 'log')
+    ax.YAxisLocation = 'origin';
     legend(ca, 'Location', 'southwest')
 end
 
@@ -138,12 +135,12 @@ end
 % check W with minus and plus
 
 
-function [n_choices, m_choices] = get_params(min_n, max_n, min_m, max_m)
+function [n_choices, m_choices] = get_params(min_n, max_n, min_m, max_m, m_steps)
     % iterate over num of samples (10^val)
     n_choices = logspace(min_n, max_n, max_n-min_n + 1);
 
     % iterate over num of random vectors u to use
-    m_choices = linspace(min_m, max_m, max_m-min_m + 1);
+    m_choices = linspace(min_m, max_m, m_steps);
 end
 
 function ei = canonvec(i, dim)
