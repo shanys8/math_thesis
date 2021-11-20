@@ -10,14 +10,12 @@ A = randn(d, d); % ICA demixing matrix
 
 print_noise(with_noise)
 
-min_n = 2;
-max_n = 5; % 10^7 is the max dim possible to run
+min_n = 7;
+max_n = 7; % 10^7 is the max dim possible to run
 min_m = 1;
-max_m = 10;
-m_steps = 10;
-
-n_choices = logspace(min_n, max_n, max_n-min_n + 1);
-m_choices = linspace(min_m, max_m, max_m-min_m + 1);
+max_m = 1;
+m_steps = 1;
+[n_choices, m_choices] = get_params(min_n, max_n, min_m, max_m, m_steps);
 % m_choices = 1:10:30;
 
 % Generate latent and samples
@@ -64,10 +62,13 @@ function u = get_u(d)
 %     u = u / sqrt(d);
 end
 
-function diff = get_diff(n, d, A, X, m)
+function diff = get_diff(n, d, A, S, m)
 
     c = 12*(n*n) / ((n-1)*(n-2)*(n-3));
     % Transpose so that rows are samples.
+    step1 = tic;
+    X = (A*S)'; % highest runtime
+    fprintf('Runtime of X = (A*S)t %d \n', toc(step1));
     H1 = 0; H2 = 0;
     DAu = 0 ;
     step2 = tic;
@@ -104,14 +105,16 @@ function plot_graphs(m_choices, n_choices, d, A, S)
     ca = cell(1, length(m_choices));
     CM = jet(length(m_choices)); 
 
-    X = (A*S)';
+    X = (A*S)'
     for j = 1:length(m_choices)
         m = m_choices(j);
         ca{j} = sprintf('m=%d', m);
         values = [];
         for n = n_choices
-            curr_X = X(1:n,:);
-            curr_diff = get_diff(n, d, A, curr_X, m);
+            curr_S = S(:,1:n);
+            curr_X = X(1,
+            
+            curr_diff = get_diff(n, d, A, curr_S, m);
             disp(['diff for n=10^', num2str(log10(n)), ' m=', num2str(m), ' is: ', num2str(curr_diff)]);
             values(end+1) = curr_diff;
         end
@@ -130,6 +133,25 @@ function plot_graphs(m_choices, n_choices, d, A, S)
     set(gca, 'YScale', 'log')
     ax.YAxisLocation = 'origin';
     legend(ca, 'Location', 'southwest')
+end
+
+% multiply diag with X is diag(d).*X
+% check W with minus and plus
+
+
+function [n_choices, m_choices] = get_params(min_n, max_n, min_m, max_m, m_steps)
+    % iterate over num of samples (10^val)
+    n_choices = logspace(min_n, max_n, max_n-min_n + 1);
+
+    % iterate over num of random vectors u to use
+    m_choices = linspace(min_m, max_m, m_steps);
+end
+
+function ei = canonvec(i, dim)
+%   function ei = canonvec(i, dim)
+%   Produces the ith canonical vector in a dim dimensional space.
+    ei = zeros(dim, 1);
+    ei(i) = 1;
 end
 
 
