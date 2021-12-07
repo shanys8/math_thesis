@@ -31,7 +31,6 @@ function demo_quasiorth()
     S = (rand(2, samples) - .5)*2*sqrt(3);
     A = [1 1
         0 1];
-    A = A;
     X = A*S;
     X2 = X + mvnrnd(zeros(2, samples)', NoiseMagnitude*Sigma)';
 
@@ -45,7 +44,11 @@ function demo_quasiorth()
     
     [Y2, W, b] = qwhiten(X2, 'quasi whiten');
     Y = W*(X-repmat(b, 1, size(X, 2)));
-    [Q, R] = qr(W*A)
+    [~,p] = chol(W);
+    if (p==0); txt='PSD'; else; txt='Non PSD'; end
+    fprintf('W quasi whiten %s \n', txt);
+
+    [Q, R] = qr(W*A);
     figure(2);
     plot(Y2(1, :), Y2(2, :), 'g+', Y(1, :), Y(2, :), 'k.');
     title('Data after applying quasi-whitening approx based on the noisy data.');
@@ -56,6 +59,9 @@ function demo_quasiorth()
     
     [Y2, W, b] = qwhiten(X2, 'id quas-orth');
     Y = W*(X-repmat(b, 1, size(X, 2)));
+    [~,p] = chol(W);
+    if (p==0); txt='PSD'; else; txt='Non PSD'; end
+    fprintf('W id quas-orth %s \n', txt);
     [Q, R] = qr(W*A)
     figure(3);
     plot(Y2(1, :), Y2(2, :), 'g+', Y(1, :), Y(2, :), 'k.');
@@ -65,6 +71,9 @@ function demo_quasiorth()
     legend('Noisy Data', 'Clean Data');
 
     [Y2, W, b] = qwhiten(X2, 'whiten');
+    [~,p] = chol(W);
+    if (p==0); txt='PSD'; else; txt='Non PSD'; end
+    fprintf('W standard whiten %s \n', txt);
     [Q, R] = qr(W*A)
     Y = W*(X-repmat(b, 1, size(X, 2)));
     figure(4);

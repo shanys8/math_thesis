@@ -653,7 +653,7 @@ function[Xopt, dir, eigval, info] = Fixed_rank_YY_riccati(X0, info_input)
     % Pick an algorithm to solve the problem
     
 %    checkgradient(problem);
-     checkhessian(problem);
+%      checkhessian(problem);
 %     [Xopt, ~, info] = conjugategradient(problem, X0, options);
     [Xopt, ~, info] = trustregions(problem, X0, options);
 

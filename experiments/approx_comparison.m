@@ -14,9 +14,9 @@ pertubation_sign = 1;
 print_noise(with_noise)
 
 min_n = 2;
-max_n = 5; % 10^7 is the max dim possible to run
-min_m = 3;
-max_m = 3;
+max_n = 7; % 10^7 is the max dim possible to run
+min_m = 1;
+max_m = 10;
 
 n_choices = logspace(min_n, max_n, max_n-min_n + 1);
 m_choices = linspace(min_m, max_m, max_m-min_m + 1);
@@ -25,7 +25,7 @@ m_choices = linspace(min_m, max_m, max_m-min_m + 1);
 % Generate latent and samples
 S = sign(randn(d, 10^max_n));
 
-op = 'ricatti'; % 'plain'|'ricatti'|'sketching'
+op = 'plain'; % 'plain'|'ricatti'|'sketching'
 plot_graphs(op, m_choices, n_choices, d, A, S)
 
 % ------------------------- END ------------------------- %
@@ -57,6 +57,10 @@ function H1_low_rank_pert = get_H1_low_rank_pert(n, vtX)
     H1_low_rank_pert = ((2*n-2)/(n*n)) * (vtX' * vtX);
 end
 
+function H1 = get_H1(n, v, XtX, vtX)
+    H1 = get_H1_diag(n, v, XtX)  +  get_H1_low_rank_pert(n, vtX);
+end
+
 function H2 = get_H2(n, XtvX)
     H2 = ((n+1)/n) * XtvX ;
 end
@@ -71,13 +75,15 @@ function diff = get_diff(op, n, d, A, X, m)
 
     switch op
         case 'plain'
-            diff = calc_diff_plain(n, d, A, X, m); % approx hessian value - W cummulative with multiple v
+            [diff, H_approx] = calc_diff_plain(n, d, A, X, m); % approx hessian value - W cummulative with multiple v
         case 'ricatti'
-            diff = calc_diff_ricatti(n, d, A, X, m);
+            [diff, H_approx] = calc_diff_ricatti(n, d, A, X, m); % approx hessian value - H1 approx with ricatti
         otherwise
             fprintf('Not supported op \n');
             diff = -1;
-    end       
+    end
+%     writematrix(H_approx, sprintf('approx %s n=%d, m=%d', op, n, m))
+
 end
 
 
@@ -85,27 +91,28 @@ function W1_diag = get_W1_diag_part(v_vectors_mat, n)
     W1_diag = ((n-1)/(n*n))*sum(v_vectors_mat.^2, 'all');
 end
 
-function H1_approx = get_approx_H1(n, X, v_vectors_mat)
+function H1_approx = get_approx_H1(n, m, X, v_vectors_mat)
     W1_diag_scalar = get_W1_diag_part(v_vectors_mat, n);
     W1_diag_sqrt_scalar = sqrt(W1_diag_scalar); 
 %     W1_low_rank = v_vectors_mat * v_vectors_mat';
     % ricatti
-    A_ricatti = W1_diag_sqrt_scalar*eye(n);
-    B_ricatti = eye(n);
+    A_ricatti = W1_diag_sqrt_scalar*speye(n);
+    B_ricatti = speye(n);
     C_ricatti = (sqrt(2*n-2)/n) * v_vectors_mat';
     
-    params = get_ricatti_params();
+    params = get_ricatti_params(m);
     [X_Riemannian, info_Riemannian] =  Riemannian_lowrank_riccati(A_ricatti, B_ricatti, C_ricatti, params);
 
-    Delta = X_Riemannian.Y * X_Riemannian.Y';
+    %Delta = X_Riemannian.Y * X_Riemannian.Y';
+    %sqrt_W1_approx = A_ricatti + Delta;
+    %Z = sqrt_W1_approx * X;
+    Z = W1_diag_sqrt_scalar * X + X_Riemannian.Y * (X_Riemannian.Y' * X); % faster calc
     
-    sqrt_W1_approx = A_ricatti + Delta;
-    Z = sqrt_W1_approx * X;
     % sketching ...
     H1_approx = Z' * Z;
 end
 
-function diff = calc_diff_ricatti(n, d, A, X, m)
+function [diff, H_approx] = calc_diff_ricatti(n, d, A, X, m)
     c = 12*(n*n) / ((n-1)*(n-2)*(n-3)); % should we insert this coef into the sqrt optimization?
     % Transpose so that rows are samples.
     H2 = 0;
@@ -121,7 +128,7 @@ function diff = calc_diff_ricatti(n, d, A, X, m)
         H2 = H2 + get_H2(n, XtvX);
     end
     
-    H1_approx = get_approx_H1(n, X, v_vectors_mat);
+    H1_approx = get_approx_H1(n, m, X, v_vectors_mat);
     
     H_approx = c * (H1_approx-H2);  % approx hessian value
     H_true = A*DAu*A';              % True hesian value - DAu cummulative with multiple u
@@ -129,7 +136,7 @@ function diff = calc_diff_ricatti(n, d, A, X, m)
 end
 
 
-function diff = calc_diff_plain(n, d, A, X, m)
+function [diff, H_approx] = calc_diff_plain(n, d, A, X, m)
     c = 12*(n*n) / ((n-1)*(n-2)*(n-3));
     % Transpose so that rows are samples.
     H1 = 0; H2 = 0;
@@ -144,7 +151,8 @@ function diff = calc_diff_plain(n, d, A, X, m)
         dvX = v .* X;
         XtvX = dvX' * dvX;     
         vtX = v' * X;       
-        H1 = H1 + get_H1_diag(n, v, XtX)  +  get_H1_low_rank_pert(n, vtX);
+        H1 = H1 + get_H1(n, v, XtX, vtX);
+%         get_H1_diag(n, v, XtX)  +  get_H1_low_rank_pert(n, vtX);
         H2 = H2 + get_H2(n, XtvX);
     end
     H_approx = c * (H1-H2); % approx hessian value - W cummulative with multiple v
@@ -182,7 +190,7 @@ function plot_graphs(op, m_choices, n_choices, d, A, S)
         grid on;    
     end
 
-    title('Results','FontSize',16)
+    title(sprintf('Results %s', op),'FontSize',16)
     ylabel('Diff - approx. vs. true value in fro norm')
     xlabel('num of samples')
     ax = gca;
@@ -193,8 +201,8 @@ function plot_graphs(op, m_choices, n_choices, d, A, S)
     legend(ca, 'Location', 'southwest')
 end
 
-function params = get_ricatti_params()
-    params.rmax = 5; % Maximum rank
+function params = get_ricatti_params(m)
+    params.rmax = 4*m; % Maximum rank
     params.tol_rel = 1e-6; % Stopping criterion for rank incrementating procedure
     params.tolgradnorm = 1e-10; % Stopping for fixed-rank optimization
     params.maxiter = 100; % Number of iterations for fixed-rank optimization
@@ -202,6 +210,7 @@ function params = get_ricatti_params()
     params.verbosity = 2; 1; 2; 0; % Show output
 end
 
+% Naive implementation
 % function W = get_W(v, n)
 %     v_squred_diag = diag(power(v,2));
 %     % divide into H1, H2
