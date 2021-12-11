@@ -50,6 +50,7 @@ function diff = get_norm_diff(H_true, H_approx)
 end
 
 
+
 function u = get_u(d)
     u = randn(d, 1); 
 %     u = u / norm(u);
@@ -57,15 +58,14 @@ function u = get_u(d)
 end
 
 function diff = get_diff(op, n, d, A, X, m)
-
+    s = 4*d;
+    sketching_mat = (1/sqrt(s)) * randn(s, n);
     switch op
         case 'plain'
             [diff, H_approx] = calc_diff_plain(n, d, A, X, m); % approx hessian value - W cummulative with multiple v
         case 'ricatti'
             [diff, H_approx] = calc_diff_ricatti(n, d, A, X, m); % approx hessian value - H1 approx with ricatti
         case 'ricatti_sketching'
-            s = 4*d;  % sketching magnitude
-            sketching_mat = (1/sqrt(s)) * randn(s, n);
             [diff, H_approx] = calc_diff_ricatti_with_sketching(n, d, A, X, m, sketching_mat); % approx hessian value - H1 approx with ricatti, same sketching on H1 and H2
         otherwise
             fprintf('Not supported op \n');
@@ -114,7 +114,7 @@ function H1_approx = get_approx_H1(n, m, X, v_vectors_mat, is_sketching, sketchi
     Z = W1_diag_sqrt_scalar * X + X_Riemannian.Y * (X_Riemannian.Y' * X); % faster calc
     
     if is_sketching
-        Z = sketching_mat * Z;
+        
     end
     H1_approx = Z' * Z;
 end
@@ -124,12 +124,12 @@ function H2_approx = get_approx_H2(n, m, X, v_vectors_mat, is_sketching, sketchi
     dvX = v .* X;
     G = sqrt((n+1)/n) * dvX;
     if is_sketching
-        G = sketching_mat * G;
+        
     end
     H2_approx = G' * G;
 end
 
-function [diff, H_approx] = calc_diff_ricatti_with_sketching(n, d, A, X, m, sketching_mat)
+function calc_diff_ricatti_with_sketching(n, d, A, X, m, sketching_mat)
     c = 12*(n*n) / ((n-1)*(n-2)*(n-3)); % should we insert this coef into the sqrt optimization?
     H2 = 0;
     DAu = 0 ;
@@ -139,6 +139,9 @@ function [diff, H_approx] = calc_diff_ricatti_with_sketching(n, d, A, X, m, sket
         DAu = DAu + get_DAu(A,u);
         v = X*u;
         v_vectors_mat(:,i) = v';
+        dvX = v .* X;
+        XtvtX = dvX' * dvX;     
+        H2 = H2 + get_H2(n, XtvtX);
     end
     
     is_sketching = 1;
@@ -165,9 +168,9 @@ function [diff, H_approx] = calc_diff_ricatti(n, d, A, X, m)
     end
     
     is_sketching = 0;
-    sketching_mat = []; % no use in sketching
+    sketching_mat = [];
     H1_approx = get_approx_H1(n, m, X, v_vectors_mat, is_sketching, sketching_mat);
-    H_approx = c * (H1_approx - H2);  % approx hessian value
+    H_approx = c * (H1_approx-H2);  % approx hessian value
     H_true = A*DAu*A';              % True hesian value - DAu cummulative with multiple u
     diff = get_norm_diff(H_true, H_approx);
 end

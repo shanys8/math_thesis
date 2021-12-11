@@ -1,13 +1,10 @@
 2. cant run experiment with n > 10^7 - matrix to large error - check highest step within runtime
 3. c = 12*(n*n) / ((n-1)*(n-2)*(n-3)); % should we insert this coef into the sqrt optimization? can try
-4. where to separate to H1, H2 in order for us to be able to approximate - H2 by Z=sqrt(D)*X, H1 by ricatti with D + VV' where V = sqrt(2n-2 / n*n)* [v1,v2,..vm]
 
 
 demo - check results (W should be psd - make sure) - not PSD, also for quasi orth not PSD (I think only H1 is psd by H1-H2 is not)
 understand demo
-H1 - set u
 ricatti check big gradients
-compare ricatti result and regular sqrt
-params.rmax = 5 should be depend by m  (4*m) - done
 set u vectors to be const between plain and ricatti - done
 
+sketching add
