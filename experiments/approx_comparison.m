@@ -1,5 +1,5 @@
 clear all; close all; clc;
-RandStream.setGlobalStream(RandStream('mt19937ar','seed', 1));  % fixed seed
+RandStream.setGlobalStream(RandStream('mt19937ar','seed', 43434));  % fixed seed
 
 % ------------------------- START ------------------------- %
 
@@ -8,15 +8,15 @@ with_noise = false;
 d = 20; % dimension
 A = randn(d, d); % ICA demixing matrix
 
-global pertubation_sign
+global pertubation_sign;
 pertubation_sign = 1;
 
 print_noise(with_noise)
 
-min_n = 5;
+min_n = 2;
 max_n = 5; % 10^7 is the max dim possible to run
-min_m = 5;
-max_m = 5;
+min_m = 1;
+max_m = 4;
 
 n_choices = logspace(min_n, max_n, max_n-min_n + 1);
 m_choices = linspace(min_m, max_m, max_m-min_m + 1);
@@ -25,7 +25,7 @@ m_choices = linspace(min_m, max_m, max_m-min_m + 1);
 % Generate latent and samples
 S = sign(randn(d, 10^max_n));
 
-op = 'ricatti_sketching'; % 'plain'|'ricatti'|'ricatti_sketching'
+op = 'ricatti'; % 'plain'|'ricatti'|'ricatti_sketching'
 plot_graphs(op, m_choices, n_choices, d, A, S)
 
 % ------------------------- END ------------------------- %
@@ -51,28 +51,24 @@ end
 
 
 function u = get_u(d)
-    u = randn(d, 1); 
+    u = randn(d, 1);
 %     u = u / norm(u);
 %     u = u / sqrt(d);
 end
 
 function diff = get_diff(op, n, d, A, X, m)
-
     switch op
         case 'plain'
             [diff, H_approx] = calc_diff_plain(n, d, A, X, m); % approx hessian value - W cummulative with multiple v
         case 'ricatti'
             [diff, H_approx] = calc_diff_ricatti(n, d, A, X, m); % approx hessian value - H1 approx with ricatti
         case 'ricatti_sketching'
-            s = 4*d;  % sketching magnitude
-            sketching_mat = (1/sqrt(s)) * randn(s, n);
-            [diff, H_approx] = calc_diff_ricatti_with_sketching(n, d, A, X, m, sketching_mat); % approx hessian value - H1 approx with ricatti, same sketching on H1 and H2
+            [diff, H_approx] = calc_diff_ricatti_with_sketching(n, d, A, X, m); % approx hessian value - H1 approx with ricatti, same sketching on H1 and H2
         otherwise
             fprintf('Not supported op \n');
             diff = -1;
     end
-    writematrix(H_approx, sprintf('approx %s n=%d, m=%d', op, n, m))
-
+%     writematrix(H_approx, sprintf('approx %s n=%d, m=%d', op, n, m))
 end
 
 
@@ -129,7 +125,7 @@ function H2_approx = get_approx_H2(n, m, X, v_vectors_mat, is_sketching, sketchi
     H2_approx = G' * G;
 end
 
-function [diff, H_approx] = calc_diff_ricatti_with_sketching(n, d, A, X, m, sketching_mat)
+function [diff, H_approx] = calc_diff_ricatti_with_sketching(n, d, A, X, m)
     c = 12*(n*n) / ((n-1)*(n-2)*(n-3)); % should we insert this coef into the sqrt optimization?
     H2 = 0;
     DAu = 0 ;
@@ -141,11 +137,21 @@ function [diff, H_approx] = calc_diff_ricatti_with_sketching(n, d, A, X, m, sket
         v_vectors_mat(:,i) = v';
     end
     
+%     writematrix(v_vectors_mat, 'v_vectors_mat sketching')
+
+    s = 100*d;  % sketching magnitude
+    sketching_mat = (1/sqrt(s)) * randn(s, n);
+            
     is_sketching = 1;
     H1_approx = get_approx_H1(n, m, X, v_vectors_mat, is_sketching, sketching_mat);
     H2_approx = get_approx_H2(n, m, X, v_vectors_mat, is_sketching, sketching_mat);
+%     writematrix(H1_approx, 'H1_approx_calc_diff_ricatti_with_sketching')
+%     writematrix(H2_approx, 'H2_approx_calc_diff_ricatti_with_sketching')
     H_approx = c * (H1_approx-H2_approx);  % approx hessian value
     H_true = A*DAu*A';              % True hesian value - DAu cummulative with multiple u
+    
+    %     writematrix(v_vectors_mat, 'v_vectors_mat sketching')
+
     diff = get_norm_diff(H_true, H_approx);
 end
 
@@ -164,9 +170,13 @@ function [diff, H_approx] = calc_diff_ricatti(n, d, A, X, m)
         H2 = H2 + get_H2(n, XtvtX);
     end
     
+%     writematrix(v_vectors_mat, 'v_vectors_mat ricatti')
+    
     is_sketching = 0;
     sketching_mat = []; % no use in sketching
     H1_approx = get_approx_H1(n, m, X, v_vectors_mat, is_sketching, sketching_mat);
+%     writematrix(H1_approx, 'H1_approx_calc_diff_ricatti')
+%     writematrix(H2, 'H2_calc_diff_ricatti')
     H_approx = c * (H1_approx - H2);  % approx hessian value
     H_true = A*DAu*A';              % True hesian value - DAu cummulative with multiple u
     diff = get_norm_diff(H_true, H_approx);
@@ -215,10 +225,19 @@ function plot_graphs(op, m_choices, n_choices, d, A, S)
         ca{j} = sprintf('m=%d', m);
         values = [];
         for n = n_choices
+            disp(['calc n=10^', num2str(log10(n)), ' m=', num2str(m)]);
             curr_X = X(1:n,:);
-            curr_diff = get_diff(op, n, d, A, curr_X, m);
-            disp(['diff for n=10^', num2str(log10(n)), ' m=', num2str(m), ' is: ', num2str(curr_diff)]);
-            values(end+1) = curr_diff;
+            RandStream.setGlobalStream(RandStream('mt19937ar','seed', 12121));  % fixed seed
+            try
+                curr_diff = get_diff(op, n, d, A, curr_X, m);
+                disp(['diff for n=10^', num2str(log10(n)), ' m=', num2str(m), ' is: ', num2str(curr_diff)]);
+                values(end+1) = curr_diff;
+            catch e
+                fprintf('n=%s, m=%s \n', num2str(n), num2str(m));
+                fprintf(1,'The identifier was:\n%s',e.identifier);
+                fprintf(1,'There was an error!\nThe message was:\n%s',e.message);
+                values(end+1) = -1;
+            end
         end
 
         hold on;
