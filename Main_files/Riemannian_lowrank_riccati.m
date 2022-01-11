@@ -93,7 +93,8 @@ function[X, infoupdate] =  Riemannian_lowrank_riccati(A, B, C, params)
     %% Main algorithm
     
     r_inc = 1; % Increase by rank 1 until tolerance is satisfied
-    X0.Y = randn(m, 1);
+%     X0.Y = randn(m, 1);
+    X0.Y = randn(m, 1); X0.Y = X0.Y / norm(X0.Y);
     r0 = size(X0.Y, 2);
     infoupdate.rank = [];
     infoupdate.cost = [];

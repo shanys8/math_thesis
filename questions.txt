@@ -2,9 +2,7 @@
 3. c = 12*(n*n) / ((n-1)*(n-2)*(n-3)); % should we insert this coef into the sqrt optimization? can try
 
 
-demo - check results (W should be psd - make sure) - not PSD, also for quasi orth not PSD (I think only H1 is psd by H1-H2 is not)
+demo - check results - cases that it works and cases that it's not
 understand demo
-ricatti check big gradients
-set u vectors to be const between plain and ricatti - done
-
-sketching add
+added sketching mat to ricatti - no improvement
+check code with same u vectors - two plots - with sketch and wo
