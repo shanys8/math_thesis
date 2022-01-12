@@ -69,8 +69,8 @@ function [d_alpha, d_D, d_Z] = get_partial_derivatives(n, d, alpha, dd, Z, phi, 
     inv_C_dot_t = C\t;
     inv_C_dot_Z = C\Z;
     t4 = (C\phi)*(A\phi');
-    t8 = t4*(C\t);
-    t9 = t4*(C\Z);
+    t8 = t4*inv_C_dot_t;
+    t9 = t4*inv_C_dot_Z;
 
     d_alpha = (1/2)*(d/alpha - trace(inv(A)) - (t'*(C\phi)*(A\(A\phi')) * (C\t)));
     d_D = (1/2)*( diag(t4/C) - diag(inv(C)) + inv_C_dot_t.*inv_C_dot_t - (inv_C_dot_t.*t8) + t8.*t8 - t8.*inv_C_dot_t);
@@ -78,28 +78,22 @@ function [d_alpha, d_D, d_Z] = get_partial_derivatives(n, d, alpha, dd, Z, phi, 
 end
 
 
-function [d_alpha] = get_d_alpha(n, d, alpha, dd, Z, phi, t)
-    C = diag(dd) + Z*Z';
-    A = alpha*eye(d) + phi'*(C\phi);
-    d_alpha = (1/2)*(d/alpha - trace(inv(A)) - (t'*(C\phi)*(A\(A\phi')) * (C\t)));
-end
+% function [d_alpha] = get_d_alpha(n, d, alpha, dd, Z, phi, t)
+%     C = diag(dd) + Z*Z';
+%     A = alpha*eye(d) + phi'*(C\phi);
+%     d_alpha = (1/2)*(d/alpha - trace(inv(A)) - (t'*(C\phi)*(A\(A\phi')) * (C\t)));
+% end
+% 
+% function [d_D] = get_d_D(n, d, alpha, dd, Z, phi, t)
+%     
+%     C = diag(dd) + Z*Z';
+%     A = alpha*eye(d) + phi'*(C\phi);
+%     
+%     t4 = (C\phi)*(A\phi');
+%     t8 = t4*(C\t);
+%     inv_C_dot_t = C\t;
+% 
+%     d_D = (1/2)*( diag(t4/C) - diag(inv(C)) + inv_C_dot_t.*inv_C_dot_t - (inv_C_dot_t.*t8) + t8.*t8 - t8.*inv_C_dot_t);
+% end
 
-function [d_D] = get_d_D(n, d, alpha, dd, Z, phi, t)
-    
-    C = diag(dd) + Z*Z';
-    A = alpha*eye(d) + phi'*(C\phi);
-    
-    t4 = (C\phi)*(A\phi');
-    t8 = t4*(C\t);
-    inv_C_dot_t = C\t;
 
-    d_D = (1/2)*( diag(t4/C) - diag(inv(C)) + inv_C_dot_t.*inv_C_dot_t - (inv_C_dot_t.*t8) + t8.*t8 - t8.*inv_C_dot_t);
-end
-
-
-% val = get_marginal_likelihood(n, d, alpha, dd, Z, phi, t);
-% [d_alpha, d_D, d_Z] = get_partial_derivatives(n, d, alpha, dd, Z, phi, t);
-
-         
-% dalpha = dlgradient(marginal_likelihood_log, alpha);             
-%                         + (1/2) * m_n'* A * m_n;    % E(m)

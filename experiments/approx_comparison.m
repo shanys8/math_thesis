@@ -15,8 +15,8 @@ print_noise(with_noise)
 
 min_n = 2;
 max_n = 5; % 10^7 is the max dim possible to run
-min_m = 1;
-max_m = 4;
+min_m = 2;
+max_m = 2;
 
 n_choices = logspace(min_n, max_n, max_n-min_n + 1);
 m_choices = linspace(min_m, max_m, max_m-min_m + 1);
