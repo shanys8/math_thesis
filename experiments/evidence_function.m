@@ -14,7 +14,7 @@ phi = rand(n,d);            % basis functions - n functions, each function d dim
 
 
 x = build_vector_from_vars(alpha, dd, Z);
-func = @(x) get_marginal_likelihood(n, d, x(1), x(2:n+1), reshape(x(n+2:end), n, k), phi, t);
+func = @(x) get_marginal_likelihood(n, d, k, x(1), x(2:n+1), reshape(x(n+2:end), n, k), phi, t);
 grad_f = @(x) grad_marginal_likelihood_derivatives(x, n, d, k, phi, t);
 gradtest(length(x), func, grad_f, x, ones(length(x), 1));
 
@@ -43,30 +43,38 @@ end
 
 function derivative_vector = grad_marginal_likelihood_derivatives(x, n, d, k, phi, t)
     [alpha, dd, Z] = extract_vars_from_vector(x, n, k);
-    [d_alpha, d_D, d_Z] = get_partial_derivatives(n, d, alpha, dd, Z, phi, t);
+    [d_alpha, d_D, d_Z] = get_partial_derivatives(n, d, k, alpha, dd, Z, phi, t);
     derivative_vector = build_vector_from_vars(d_alpha, d_D, d_Z);
 end
 
 
-function [val] = get_marginal_likelihood(n, d, alpha, dd, Z, phi, t)
+function [val] = get_marginal_likelihood(n, d, k, alpha, dd, Z, phi, t)
     C = diag(dd) + Z*Z';
+    inv_D_dot_Z = (diag(dd.^-1)*Z);
+    inv_C_dot_t = diag(dd.^-1)*t - inv_D_dot_Z*((eye(k)+Z'*inv_D_dot_Z)\(inv_D_dot_Z'*t));
     A = alpha*eye(d) + phi'*(C\phi);
-    m_n = A\(phi'*(C\t));
+    m_n = A\(phi'*inv_C_dot_t);
+    log_det_by_lemma = log(prod(dd)) + logdet(eye(k)+Z'*inv_D_dot_Z);
+
+    
     val = (d/2) * log(alpha)...
-        - (1/2) * sum(log(eig(C)))...
+        - (1/2) * log_det_by_lemma...
         - (n/2) * log(2*pi)...
         - (1/2) * sum(log(eig(A)))...    
-        - (1/2) * t'*(C\t)...       % E(m)
+        - (1/2) * t'*inv_C_dot_t...       % E(m)
         + (1/2) * m_n'* A * m_n;    % E(m)
 end
 
 
-function [d_alpha, d_D, d_Z] = get_partial_derivatives(n, d, alpha, dd, Z, phi, t)
+function [d_alpha, d_D, d_Z] = get_partial_derivatives(n, d, k, alpha, dd, Z, phi, t)
     
     C = diag(dd) + Z*Z';
     A = alpha*eye(d) + phi'*(C\phi);
     
-    inv_C_dot_t = C\t;
+%     inv_C_dinv_C_dot_t_simple_t = C\t;
+    inv_D_dot_Z = (diag(dd.^-1)*Z);
+    inv_C_dot_t = diag(dd.^-1)*t - inv_D_dot_Z*((eye(k)+Z'*inv_D_dot_Z)\(inv_D_dot_Z'*t));
+    
     inv_C_dot_Z = C\Z;
     t4 = (C\phi)*(A\phi');
     t8 = t4*inv_C_dot_t;
