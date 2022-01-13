@@ -14,16 +14,16 @@ phi = rand(n,d);            % basis functions - n functions, each function d dim
 
 
 x = build_vector_from_vars(alpha, beta, Z);
-func = @(x) get_marginal_likelihood(n, d, x(1), x(2), reshape(x(3:end), n, k), phi, t);
+func = @(x) get_marginal_likelihood(n, d, k, x(1), x(2), reshape(x(3:end), n, k), phi, t);
 grad_f = @(x) grad_marginal_likelihood_derivatives(x, n, d, k, phi, t);
 gradtest(length(x), func, grad_f, x, ones(length(x), 1));
 
 
-% func = @(alpha) get_marginal_likelihood(n, d, alpha, beta, Z, phi, t);
+% func = @(alpha) get_marginal_likelihood(n, d, k, alpha, beta, Z, phi, t);
 % grad_f = @(alpha) get_d_alpha(n, d, alpha, beta, Z, phi, t);
 % gradtest(1, func, grad_f, alpha, 1);
 
-% func = @(beta) get_marginal_likelihood(n, d, alpha, beta, Z, phi, t);
+% func = @(beta) get_marginal_likelihood(n, d, k, alpha, beta, Z, phi, t);
 % grad_f = @(beta) get_d_beta(n, d, alpha, beta, Z, phi, t);
 % gradtest(1, func, grad_f, beta, 1);
 
@@ -45,30 +45,41 @@ end
 
 function derivative_vector = grad_marginal_likelihood_derivatives(x, n, d, k, phi, t)
     [alpha, beta, Z] = extract_vars_from_vector(x, n, k);
-    [d_alpha, d_beta, d_Z] = get_partial_derivatives(n, d, alpha, beta, Z, phi, t);
+    [d_alpha, d_beta, d_Z] = get_partial_derivatives(n, d, k, alpha, beta, Z, phi, t);
     derivative_vector = build_vector_from_vars(d_alpha, d_beta, d_Z);
 end
 
 
+% C\t inv(C)*t - > improve inv(C) multiply by woodbery D*t + U(U'*t)
+% logdet -> replace with matrix determinant lemma - works for C, check for
+% A
 
-function [val] = get_marginal_likelihood(n, d, alpha, beta, Z, phi, t)
+
+function [val] = get_marginal_likelihood(n, d, k, alpha, beta, Z, phi, t)
     C = (1/beta)*eye(n) + Z*Z';
+%     inv_C_dot_t_simple = C\t;
+    inv_C_dot_t = beta*t - (beta^2) * (Z*((eye(k)+beta*(Z'*Z))\(Z'*t))); %% woodbury
     A = alpha*eye(d) + phi'*(C\phi);
-    m_n = A\(phi'*(C\t));
+%     log_det_simple = sum(log(eig(C)));
+    log_det_by_lemma = -n*log(beta) + logdet(eye(k)+beta*(Z'*Z));
+    
+    m_n = A\(phi'*inv_C_dot_t);
     val = (d/2) * log(alpha)...
-        - (1/2) * sum(log(eig(C)))...
+        - (1/2) * log_det_by_lemma...
         - (n/2) * log(2*pi)...
         - (1/2) * sum(log(eig(A)))...    
-        - (1/2) * t'*(C\t)...       % E(m)
+        - (1/2) * t'*inv_C_dot_t...       % E(m)
         + (1/2) * m_n'* A * m_n;    % E(m)
 end
 
-function [d_alpha, d_beta, d_Z] = get_partial_derivatives(n, d, alpha, beta, Z, phi, t)
+
+function [d_alpha, d_beta, d_Z] = get_partial_derivatives(n, d, k, alpha, beta, Z, phi, t)
     
     C = (1/beta)*eye(n) + Z*Z';
     A = alpha*eye(d) + phi'*(C\phi);
     
-    inv_C_dot_t = C\t;
+%     inv_C_dot_t = C\t;
+    inv_C_dot_t = beta*t - (beta^2) * (Z*((eye(k)+beta*(Z'*Z))\(Z'*t))); %% woodbury
     inv_C_dot_Z = C\Z;
     t4 = (C\phi)*(A\phi');
     t8 = t4*inv_C_dot_t;
