@@ -50,12 +50,12 @@ end
 
 %% O(max{k,d}*n^2)
 function [val] = get_marginal_likelihood(n, d, k, alpha, dd, Z, phi, t)
-    C = diag(dd) + Z*Z';    % O(n+kn^2)
+    C = diag(dd) + Z*Z';    % O(n+kn^2) - we don't need to calculate C with all the optimizations 
     inv_D_dot_Z = (dd'.^-1)'.*Z; % O(kn^2)
     inv_C_dot_t = diag(dd.^-1)*t - inv_D_dot_Z*((eye(k)+Z'*inv_D_dot_Z)\(inv_D_dot_Z'*t)); % O(n+k^3+k*n)
     inv_C_dot_phi = diag(dd.^-1)*phi - inv_D_dot_Z*((eye(k)+Z'*inv_D_dot_Z)\(inv_D_dot_Z'*phi)); % O(dn^2+knd+dk^2+k^3)
 
-    A = alpha*eye(d) + phi'*inv_C_dot_phi; % O(d+dn^2+n^3)
+    A = alpha*eye(d) + phi'*inv_C_dot_phi; % O(d+dn^2)
     m_n = A\(phi'*inv_C_dot_t); % O(k^3+n*k)
     log_det_by_lemma = log(prod(dd)) + logdet(eye(k)+Z'*inv_D_dot_Z); % O(n+nk^2+k^3)
 
@@ -86,7 +86,7 @@ function [d_alpha, d_D, d_Z] = get_partial_derivatives(n, d, k, alpha, dd, Z, ph
     t8 = t4*inv_C_dot_t;    %O(n^2)
     t9 = t4*inv_C_dot_Z;    %O(kn^2)
 
-    d_alpha = (1/2)*(d/alpha - trace(inv(A)) - (t'*inv_C_dot_phi*(A\inv_A_dot_phi_t) * inv_C_dot_t));
+    d_alpha = (1/2)*(d/alpha - trace(inv(A)) - (t'*inv_C_dot_phi*(A\inv_A_dot_phi_t) * inv_C_dot_t));  % O(d^3+dn^2+nd^2)
     d_D = (1/2)*( diag(t4/C) - diag(inv(C)) + inv_C_dot_t.*inv_C_dot_t - (inv_C_dot_t.*t8) + t8.*t8 - t8.*inv_C_dot_t);
     d_Z = t9 - inv_C_dot_Z + inv_C_dot_t*t'*inv_C_dot_Z - inv_C_dot_t*t'*t9 - t8*(t'*inv_C_dot_Z) + t8*t'*t9 ;
 end
