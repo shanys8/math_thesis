@@ -50,16 +50,14 @@ function derivative_vector = grad_marginal_likelihood_derivatives(x, n, d, k, ph
 end
 
 
-% C\t inv(C)*t - > improve inv(C) multiply by woodbery D*t + U(U'*t)
-% logdet -> replace with matrix determinant lemma - works for C, check for
-% A
-
 
 function [val] = get_marginal_likelihood(n, d, k, alpha, beta, Z, phi, t)
     C = (1/beta)*eye(n) + Z*Z';
 %     inv_C_dot_t_simple = C\t;
     inv_C_dot_t = beta*t - (beta^2) * (Z*((eye(k)+beta*(Z'*Z))\(Z'*t))); %% woodbury
-    A = alpha*eye(d) + phi'*(C\phi);
+    inv_C_dot_phi = beta*phi - (beta^2) * (Z*((eye(k)+beta*(Z'*Z))\(Z'*phi))); %% woodbury
+
+    A = alpha*eye(d) + phi'*inv_C_dot_phi;
 %     log_det_simple = sum(log(eig(C)));
     log_det_by_lemma = -n*log(beta) + logdet(eye(k)+beta*(Z'*Z));
     
@@ -76,16 +74,20 @@ end
 function [d_alpha, d_beta, d_Z] = get_partial_derivatives(n, d, k, alpha, beta, Z, phi, t)
     
     C = (1/beta)*eye(n) + Z*Z';
-    A = alpha*eye(d) + phi'*(C\phi);
+    inv_C_dot_phi = C\phi; 
+    A = alpha*eye(d) + phi'*inv_C_dot_phi;
     
 %     inv_C_dot_t = C\t;
     inv_C_dot_t = beta*t - (beta^2) * (Z*((eye(k)+beta*(Z'*Z))\(Z'*t))); %% woodbury
-    inv_C_dot_Z = C\Z;
-    t4 = (C\phi)*(A\phi');
+%     inv_C_dot_Z = C\Z;
+    inv_C_dot_Z = beta*Z - (beta^2) * (Z*((eye(k)+beta*(Z'*Z))\(Z'*Z))); %% woodbury
+    inv_A_dot_phi_t = A\phi';
+    
+    t4 = inv_C_dot_phi*inv_A_dot_phi_t;
     t8 = t4*inv_C_dot_t;
     t9 = t4*inv_C_dot_Z;
 
-    d_alpha = (1/2)*(d/alpha - trace(inv(A)) - (t'*(C\phi)*(A\(A\phi')) * (C\t)));
+    d_alpha = (1/2)*(d/alpha - trace(inv(A)) - (t'*inv_C_dot_phi*(A\inv_A_dot_phi_t) * (C\t)));
     d_beta = (1/(2*beta^2))*( trace(inv(C)) - trace(t4/C) -  inv_C_dot_t'*inv_C_dot_t + inv_C_dot_t'*t8 - (t'*(t4/C))*(t'*(t4/C))' + t'*(t4/C)*inv_C_dot_t);
     d_Z = t9 - inv_C_dot_Z + inv_C_dot_t*t'*inv_C_dot_Z - inv_C_dot_t*t'*t9 - t8*(t'*inv_C_dot_Z) + t8*t'*t9 ;
 end

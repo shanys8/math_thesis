@@ -48,39 +48,45 @@ function derivative_vector = grad_marginal_likelihood_derivatives(x, n, d, k, ph
 end
 
 
+%% O(max{k,d}*n^2)
 function [val] = get_marginal_likelihood(n, d, k, alpha, dd, Z, phi, t)
-    C = diag(dd) + Z*Z';
-    inv_D_dot_Z = (diag(dd.^-1)*Z);
-    inv_C_dot_t = diag(dd.^-1)*t - inv_D_dot_Z*((eye(k)+Z'*inv_D_dot_Z)\(inv_D_dot_Z'*t));
-    A = alpha*eye(d) + phi'*(C\phi);
-    m_n = A\(phi'*inv_C_dot_t);
-    log_det_by_lemma = log(prod(dd)) + logdet(eye(k)+Z'*inv_D_dot_Z);
+    C = diag(dd) + Z*Z';    % O(n+kn^2)
+    inv_D_dot_Z = (dd'.^-1)'.*Z; % O(kn^2)
+    inv_C_dot_t = diag(dd.^-1)*t - inv_D_dot_Z*((eye(k)+Z'*inv_D_dot_Z)\(inv_D_dot_Z'*t)); % O(n+k^3+k*n)
+    inv_C_dot_phi = diag(dd.^-1)*phi - inv_D_dot_Z*((eye(k)+Z'*inv_D_dot_Z)\(inv_D_dot_Z'*phi)); % O(dn^2+knd+dk^2+k^3)
+
+    A = alpha*eye(d) + phi'*inv_C_dot_phi; % O(d+dn^2+n^3)
+    m_n = A\(phi'*inv_C_dot_t); % O(k^3+n*k)
+    log_det_by_lemma = log(prod(dd)) + logdet(eye(k)+Z'*inv_D_dot_Z); % O(n+nk^2+k^3)
 
     
     val = (d/2) * log(alpha)...
         - (1/2) * log_det_by_lemma...
         - (n/2) * log(2*pi)...
-        - (1/2) * sum(log(eig(A)))...    
-        - (1/2) * t'*inv_C_dot_t...       % E(m)
-        + (1/2) * m_n'* A * m_n;    % E(m)
+        - (1/2) * sum(log(eig(A)))...       % O(k^3)    
+        - (1/2) * t'*inv_C_dot_t...         % E(m) - O(n^2)
+        + (1/2) * m_n'* A * m_n;            % E(m) - O(k^2)
 end
 
-
+%% O(max{k,d}*n^2)
 function [d_alpha, d_D, d_Z] = get_partial_derivatives(n, d, k, alpha, dd, Z, phi, t)
     
-    C = diag(dd) + Z*Z';
-    A = alpha*eye(d) + phi'*(C\phi);
-    
-%     inv_C_dinv_C_dot_t_simple_t = C\t;
+%     inv_C_dot_t = C\t;
     inv_D_dot_Z = (diag(dd.^-1)*Z);
     inv_C_dot_t = diag(dd.^-1)*t - inv_D_dot_Z*((eye(k)+Z'*inv_D_dot_Z)\(inv_D_dot_Z'*t));
     
-    inv_C_dot_Z = C\Z;
-    t4 = (C\phi)*(A\phi');
-    t8 = t4*inv_C_dot_t;
-    t9 = t4*inv_C_dot_Z;
+    C = diag(dd) + Z*Z';    %O(n+kn^2)
+    inv_C_dot_phi = C\phi;  %O(n^3+dn^2)
+    A = alpha*eye(d) + phi'*inv_C_dot_phi;    %O(d+nd^2)
+    inv_A_dot_phi_t = A\phi';   %O(d^3+nd^2)
 
-    d_alpha = (1/2)*(d/alpha - trace(inv(A)) - (t'*(C\phi)*(A\(A\phi')) * (C\t)));
+    inv_C_dot_Z = diag(dd.^-1)*Z - inv_D_dot_Z*((eye(k)+Z'*inv_D_dot_Z)\(inv_D_dot_Z'*Z)); %O(nk+k^3+nk^2)
+%     inv_C_dot_Z = C\Z;
+    t4 = inv_C_dot_phi*inv_A_dot_phi_t; %O(dn^2)
+    t8 = t4*inv_C_dot_t;    %O(n^2)
+    t9 = t4*inv_C_dot_Z;    %O(kn^2)
+
+    d_alpha = (1/2)*(d/alpha - trace(inv(A)) - (t'*inv_C_dot_phi*(A\inv_A_dot_phi_t) * inv_C_dot_t));
     d_D = (1/2)*( diag(t4/C) - diag(inv(C)) + inv_C_dot_t.*inv_C_dot_t - (inv_C_dot_t.*t8) + t8.*t8 - t8.*inv_C_dot_t);
     d_Z = t9 - inv_C_dot_Z + inv_C_dot_t*t'*inv_C_dot_Z - inv_C_dot_t*t'*t9 - t8*(t'*inv_C_dot_Z) + t8*t'*t9 ;
 end
