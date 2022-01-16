@@ -4,15 +4,16 @@ RandStream.setGlobalStream(RandStream('mt19937ar','seed', 12121));  % fixed seed
 n = 100;                    % num of samples
 k = 1;                      % low rank pert dim
 Z = randn(n,k);
+Z = 0.01*Z/norm(Z);
 
-%todo rank 0
-min_rank = 1;
+min_rank = 0;
 max_rank = 6;
 update_rank_list = linspace(min_rank, max_rank, max_rank-min_rank+1);
 
 % graph params - need to change only here
 optimization_function = 'sqrt'; % 'sqrt'|'inv_sqrt'
 diagonal_dist = 'uniform'; % 'uniform'|'logspace'
+
 
 
 
@@ -47,6 +48,7 @@ function result_diag = get_diag(optimization_function, dd)
     switch optimization_function
         case 'sqrt'
             result_diag = diag(sqrt(dd));
+%             result_diag = sqrtm(diag(dd));
         case 'inv_sqrt'
             result_diag = diag(dd.^(-1/2));
         otherwise
@@ -56,10 +58,10 @@ end
 
 
 function get_diff_graph(n, dd, Z, func, optimization_function, update_rank_list)
-    
     A = diag(dd) + Z * Z';
-    
-%     A = diag(dd) - Z * Z'; only in sqrt
+
+%     A = diag(dd) + pertubation_sign * (Z * Z');
+%     A = diag(dd) - Z * Z'; add only in sqrt
 
     
     true_value = func(A);
@@ -69,10 +71,10 @@ function get_diff_graph(n, dd, Z, func, optimization_function, update_rank_list)
     result_diag = get_diag(optimization_function, dd);
     global pertubation_sign;
     if (strcmp(optimization_function, 'sqrt')); pertubation_sign = 1; else; pertubation_sign = -1; end
-    
     for rank = update_rank_list
         ricatti_update = get_ricatti_approx(n, Z, rank, result_diag, optimization_function);
-        ricatti_approx = result_diag + pertubation_sign * (ricatti_update*ricatti_update');
+        ricatti_approx = result_diag + pertubation_sign * ricatti_update;
+
         ricatti_err =  get_norm_diff(true_value, ricatti_approx);
         ricatti_err_values(end+1) = ricatti_err;
 
@@ -113,14 +115,18 @@ function res = get_C_ricatti(result_diag, Z, optimization_function)
 end
 
 function ricatti_update = get_ricatti_approx(n, Z, rank, result_diag, optimization_function)
+    if rank == 0
+        ricatti_update = 0;
+        return
+    end
     A_ricatti = result_diag;
     B_ricatti = speye(n);
     C_ricatti = get_C_ricatti(result_diag, Z, optimization_function)';
+%     C_ricatti = Z';
     
     params = get_ricatti_params(rank);
     [X_Riemannian, ~] =  Riemannian_lowrank_riccati(A_ricatti, B_ricatti, C_ricatti, params);
-    ricatti_update = X_Riemannian.Y;
-    
+    ricatti_update = X_Riemannian.Y * X_Riemannian.Y';
 end
 
 function G_m = get_G_m(alpha_vals, beta_vals)
@@ -132,6 +138,8 @@ end
 
 function Xm_sqrt = get_X_m_sqrt(f, Z, G_m, rank)
     Xm_sqrt = f(G_m + (norm(Z))^2 *  eye(1,rank)'*eye(1,rank)) - f(G_m);
+%     Xm_sqrt = f(G_m - (norm(Z))^2 *  eye(1,rank)'*eye(1,rank)) - f(G_m);
+%     - this is for case when A=D-ZZ'
 end
 
 
@@ -189,11 +197,9 @@ function plot_graphs(update_rank_list, ricatti_err_values, krylov_err_values)
     ylabel('Diff - approx. vs. true value in fro norm')
     xlabel('update rank')
     ax = gca;
-%     set(gca, 'XScale', 'log')
-    % todo - ylim 10^0
     ax.XAxisLocation = 'origin';
     set(gca, 'YScale', 'log')
+    set(gca, 'YLim', [0, 10^0])
     ax.YAxisLocation = 'origin';
     legend;
-%     legend(ca, 'Location', 'southwest')
 end
