@@ -6,16 +6,13 @@ k = 1;                      % low rank pert dim
 Z = randn(n,k);
 Z = 0.01*Z/norm(Z);
 
-min_rank = 0;
+min_rank = 2;
 max_rank = 5;
 update_rank_list = linspace(min_rank, max_rank, max_rank-min_rank+1);
 
 % graph params - need to change only here
 optimization_function = 'sqrt'; % 'sqrt'|'inv_sqrt'
 diagonal_dist = 'uniform'; % 'uniform'|'logspace'
-
-% uniform / logscale with sqrt - between 0-7 rank
-% invsqrt - between 0-5 rank
 
 
 [fun_mat_sqrt, dd] = get_graph_params(n, optimization_function, diagonal_dist);
@@ -48,7 +45,6 @@ function result_diag = get_diag(optimization_function, dd)
     switch optimization_function
         case 'sqrt'
             result_diag = diag(sqrt(dd));
-%             result_diag = sqrtm(diag(dd));
         case 'inv_sqrt'
             result_diag = diag(dd.^(-1/2));
         otherwise
@@ -58,26 +54,40 @@ end
 
 
 function get_diff_graph(n, dd, Z, func, optimization_function, update_rank_list)
-    A = diag(dd) + Z * Z';
-
-%     A = diag(dd) + pertubation_sign * (Z * Z');
-%     A = diag(dd) - Z * Z'; add only in sqrt
-
+    D = diag(dd);
+    global pertubation_sign;
+    pertubation_sign = -1;
     
-    true_value = func(A);
+    A = D + pertubation_sign * (Z * Z');
+
+    true_value = sqrtm(A);
     ricatti_err_values = [];
     krylov_err_values = [];
 
     result_diag = get_diag(optimization_function, dd);
-    global pertubation_sign;
-    if (strcmp(optimization_function, 'sqrt')); pertubation_sign = 1; else; pertubation_sign = -1; end
-    for rank = update_rank_list
-        ricatti_update = get_ricatti_approx(n, Z, rank, result_diag, optimization_function);
-        ricatti_approx = result_diag + pertubation_sign * ricatti_update;
 
+    for rank = update_rank_list
+        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        A_ricatti = sqrtm(D);
+        B_ricatti = eye(n);
+        C_ricatti = Z';
+
+        params = get_ricatti_params(rank);
+        [X_Riemannian, info_Riemannian] =  Riemannian_lowrank_riccati(A_ricatti, B_ricatti, C_ricatti, params);
+        cost = info_Riemannian.cost(end);
+        
+        ricatti_update = X_Riemannian.Y * X_Riemannian.Y';
+
+        ricatti_approx = sqrtm(D) + pertubation_sign * ricatti_update;
+                
         ricatti_err =  get_norm_diff(true_value, ricatti_approx);
+        
         ricatti_err_values(end+1) = ricatti_err;
 
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        
         krylov_update = get_krylov_approx(func, n, dd, Z, rank);
         krylov_approx = result_diag + krylov_update;
         krylov_err =  get_norm_diff(true_value, krylov_approx);
@@ -98,36 +108,9 @@ end
 
 function diff = get_norm_diff(H_true, H_approx)
     diff = norm(H_approx-H_true, 'fro') / norm(H_true, 'fro');
-%     diff = norm(H_approx-H_true) / norm(H_true);
-
 end
 
-function res = get_C_ricatti(result_diag, Z, optimization_function)
-    switch optimization_function
-        case 'sqrt'
-            res = Z;
-        case 'inv_sqrt'
-            inv_D = result_diag*result_diag;
-            res = inv_D * Z * sqrtm(inv(eye(size(Z,2)) + Z'*inv_D*Z));
-        otherwise
-            error('not supportive opt function');
-    end
-end
 
-function ricatti_update = get_ricatti_approx(n, Z, rank, result_diag, optimization_function)
-    if rank == 0
-        ricatti_update = 0;
-        return
-    end
-    A_ricatti = result_diag;
-    B_ricatti = speye(n);
-    C_ricatti = get_C_ricatti(result_diag, Z, optimization_function)';
-%     C_ricatti = Z';
-    
-    params = get_ricatti_params(rank);
-    [X_Riemannian, ~] =  Riemannian_lowrank_riccati(A_ricatti, B_ricatti, C_ricatti, params);
-    ricatti_update = X_Riemannian.Y * X_Riemannian.Y';
-end
 
 function G_m = get_G_m(alpha_vals, beta_vals)
     G_1 = diag(alpha_vals);
@@ -137,9 +120,7 @@ function G_m = get_G_m(alpha_vals, beta_vals)
 end
 
 function Xm_sqrt = get_X_m_sqrt(f, Z, G_m, rank)
-    Xm_sqrt = f(G_m + (norm(Z))^2 *  eye(1,rank)'*eye(1,rank)) - f(G_m);
-%     Xm_sqrt = f(G_m - (norm(Z))^2 *  eye(1,rank)'*eye(1,rank)) - f(G_m);
-%     - this is for case when A=D-ZZ'
+    Xm_sqrt = f(G_m - (norm(Z))^2 *  eye(1,rank)'*eye(1,rank)) - f(G_m);
 end
 
 
@@ -175,8 +156,8 @@ end
 
 function params = get_ricatti_params(rank)
     params.rmax = rank; % Maximum rank
-    params.tol_rel = 1e-13; % Stopping criterion for rank incrementating procedure
-    params.tolgradnorm = 1e-13; % Stopping for fixed-rank optimization
+    params.tol_rel = 1e-6; % Stopping criterion for rank incrementating procedure
+    params.tolgradnorm = 1e-10; % Stopping for fixed-rank optimization
     params.maxiter = 100; % Number of iterations for fixed-rank optimization
     params.maxinner = 30; % Number of trust-region subproblems for fixed-rank optimization
     params.verbosity = 2; 1; 2; 0; % Show output
