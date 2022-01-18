@@ -10,16 +10,16 @@ Z = 0.01*Z;
 
 
 %% sqrt update W^(1/2) of W = D + Z*Z' - only need D^(1/2)
-% [update_term, residual] = sqrtm_update(n, dd, diag(sqrt(dd)), Z, k, sqrtm(diag(dd)+Z*Z')); 
+% [approx, update_term, residual] = sqrtm_update(n, dd, diag(sqrt(dd)), Z, k, sqrtm(diag(dd)+Z*Z')); 
 
 %% inv sqrt update W^(-1/2) of W = D + Z*Z' -  need D^(1/2) &  D^(-1/2)
-[update_term, residual] = inv_sqrtm_update(n, k, dd, diag(sqrt(dd)), diag(dd.^(-1/2)), Z, (diag(dd) + Z*Z')^(-1/2)); 
+[approx, update_term, residual] = inv_sqrtm_update(n, k, dd, diag(sqrt(dd)), diag(dd.^(-1/2)), Z, (diag(dd) + Z*Z')^(-1/2)); 
 
 %% inv sqrt update W^(-1/2) of W = D - Z*Z' - only need D^(-1/2)
-% [update_term, residual] = inv_sqrtm_with_minus_update(n, k, dd, diag(dd.^(-1/2)), Z, (diag(dd) - Z*Z')^(-1/2)); 
+% [approx, update_term, residual] = inv_sqrtm_with_minus_update(n, k, dd, diag(dd.^(-1/2)), Z, (diag(dd) - Z*Z')^(-1/2)); 
 
 %% sqrt update W^(1/2) of W = D - Z*Z' -  need D^(1/2) &  D^(-1/2)
-% [update_term, residual] = sqrtm_with_minus_update(n, k, dd, diag(sqrt(dd)), diag(dd.^(-1/2)), Z, sqrtm(diag(dd)-Z*Z')); 
+% [approx, update_term, residual] = sqrtm_with_minus_update(n, k, dd, diag(sqrt(dd)), diag(dd.^(-1/2)), Z, sqrtm(diag(dd)-Z*Z')); 
 
 
 fprintf("done");
@@ -57,7 +57,7 @@ function res = get_inv_sqrtm_update_C_ricatti(k, dd, Z)
     res = D*H*sqrtm(inv(eye(k) - H'*D*H));
 end
 
-function [update_term, residual] = sqrtm_with_minus_update(n, k, dd, Asqrt, A_inv_sqrt, Z, true_val)
+function [approx, update_term, residual] = sqrtm_with_minus_update(n, k, dd, Asqrt, A_inv_sqrt, Z, true_val)
     global pertubation_sign;
     pertubation_sign = 1;
     A_ricatti = A_inv_sqrt;
@@ -76,7 +76,7 @@ function [update_term, residual] = sqrtm_with_minus_update(n, k, dd, Asqrt, A_in
 end
 
 %% version 2 %%
-function [update_term, residual] = inv_sqrtm_update(n, k, dd, Asqrt, A_inv_sqrt, Z, true_val)
+function [approx, update_term, residual] = inv_sqrtm_update(n, k, dd, Asqrt, A_inv_sqrt, Z, true_val)
     global pertubation_sign;
     pertubation_sign = 1;
     A_ricatti = Asqrt;
@@ -113,7 +113,7 @@ end
 %     residual = norm(approx-true_val, 'fro');
 % end
 
-function [update_term, residual] = inv_sqrtm_with_minus_update(n, k, dd, A_inv_sqrt, Z, true_val)
+function [approx, update_term, residual] = inv_sqrtm_with_minus_update(n, k, dd, A_inv_sqrt, Z, true_val)
     global pertubation_sign;
     pertubation_sign = 1;
     A_ricatti = A_inv_sqrt;
@@ -128,7 +128,7 @@ function [update_term, residual] = inv_sqrtm_with_minus_update(n, k, dd, A_inv_s
     residual = norm(approx-true_val, 'fro');
 end
 
-function [update_term, residual] = sqrtm_update(n, dd, Asqrt, Z, k, true_val)
+function [approx, update_term, residual] = sqrtm_update(n, dd, Asqrt, Z, k, true_val)
 
     global pertubation_sign;
     pertubation_sign = 1;
