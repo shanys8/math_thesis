@@ -4,15 +4,15 @@ RandStream.setGlobalStream(RandStream('mt19937ar','seed', 12121));  % fixed seed
 n = 100;                    % num of samples
 k = 1;                      % low rank pert dim
 Z = randn(n,k);
-Z = 0.01*Z/norm(Z);
+Z = Z/norm(Z);
 
 min_rank = 0;
-max_rank = 5;
+max_rank = 6;
 update_rank_list = linspace(min_rank, max_rank, max_rank-min_rank+1);
 
 % graph params - need to change only here
-% 'sqrt_plus_update'|'sqrt_minus_update'|'inv_sqrt_plus_update'|'inv_sqrt_minus_update
-optimization_function = 'inv_sqrt_minus_update'; 
+% 'sqrt_update'|'sqrt_downdate'|'inv_sqrt_update'|'inv_sqrt_downdate
+optimization_function = 'inv_sqrt_update'; 
 diagonal_dist = 'uniform'; % 'uniform'|'logspace'
 
 % uniform / logscale with sqrt - between 0-7 rank
@@ -20,11 +20,19 @@ diagonal_dist = 'uniform'; % 'uniform'|'logspace'
 
 
 dd = get_diag_vector(n, diagonal_dist);
+Z = get_Z(Z, optimization_function);
 get_diff_graph(n, dd, Z, optimization_function, update_rank_list)
 
 
 
 %% ------------------------- methods ------------------------- %%
+
+function Z = get_Z(Z, optimization_function)
+    if contains(optimization_function, 'downdate')
+        Z = 0.1*Z;
+    end
+end
+
 function dd = get_diag_vector(n, diagonal_dist)
     switch diagonal_dist
         case 'uniform'
@@ -39,9 +47,9 @@ end
 
 function func = get_krylov_opt_func(optimization_function)
     switch optimization_function
-        case {'sqrt_plus_update', 'sqrt_minus_update'}
+        case {'sqrt_update', 'sqrt_downdate'}
             func = @(X) sqrtm(X);
-        case {'inv_sqrt_plus_update', 'inv_sqrt_minus_update'}
+        case {'inv_sqrt_update', 'inv_sqrt_downdate'}
             func = @(X) inv(sqrtm(X));
         otherwise
             error('not supportive opt function');
@@ -50,9 +58,9 @@ end
 
 function result_diag = get_diag(optimization_function, dd)
     switch optimization_function
-        case {'sqrt_plus_update', 'sqrt_minus_update'}
+        case {'sqrt_update', 'sqrt_downdate'}
             result_diag = diag(sqrt(dd));
-        case {'inv_sqrt_plus_update', 'inv_sqrt_minus_update'}
+        case {'inv_sqrt_update', 'inv_sqrt_downdate'}
            result_diag = diag(dd.^(-1/2));
         otherwise
             error('not supportive opt function');
@@ -61,9 +69,9 @@ end
 
 function krylov_sign = get_krylov_opt_sign(optimization_function)
     switch optimization_function
-        case {'sqrt_plus_update', 'inv_sqrt_plus_update'}
+        case {'sqrt_update', 'inv_sqrt_update'}
             krylov_sign = 1;
-        case {'sqrt_minus_update', 'inv_sqrt_minus_update'}
+        case {'sqrt_downdate', 'inv_sqrt_downdate'}
            krylov_sign = -1;
         otherwise
             error('not supportive opt function');
@@ -72,13 +80,13 @@ end
 
 function true_value = get_true_value(optimization_function, dd, Z)
     switch optimization_function
-        case 'sqrt_plus_update'
+        case 'sqrt_update'
             true_value = sqrtm(diag(dd)+Z*Z');
-        case 'sqrt_minus_update'
+        case 'sqrt_downdate'
             true_value = sqrtm(diag(dd)-Z*Z');
-        case 'inv_sqrt_plus_update'
+        case 'inv_sqrt_update'
             true_value = (diag(dd) + Z*Z')^(-1/2);
-        case 'inv_sqrt_minus_update'
+        case 'inv_sqrt_downdate'
             true_value = (diag(dd) - Z*Z')^(-1/2);
         otherwise
             error('not supportive opt function');
@@ -105,14 +113,14 @@ function get_diff_graph(n, dd, Z, optimization_function, update_rank_list)
         end
         
         switch optimization_function
-            case 'sqrt_plus_update'
+            case 'sqrt_update'
                 [approx, update_term, ricatti_err] = sqrtm_update(n, dd, diag(sqrt(dd)), Z, rank, true_value); 
-            case 'sqrt_minus_update'
-                [approx, update_term, ricatti_err] = sqrtm_with_minus_update(n, rank, dd, diag(sqrt(dd)), diag(dd.^(-1/2)), Z, true_value); 
-            case 'inv_sqrt_plus_update'
+            case 'sqrt_downdate'
+                [approx, update_term, ricatti_err] = sqrtm_with_downdate(n, rank, dd, diag(sqrt(dd)), diag(dd.^(-1/2)), Z, true_value); 
+            case 'inv_sqrt_update'
                 [approx, update_term, ricatti_err] = inv_sqrtm_update(n, rank, dd, diag(sqrt(dd)), diag(dd.^(-1/2)), Z, true_value); 
-            case 'inv_sqrt_minus_update'
-                [approx, update_term, ricatti_err] = inv_sqrtm_with_minus_update(n, rank, dd, diag(dd.^(-1/2)), Z, true_value); 
+            case 'inv_sqrt_downdate'
+                [approx, update_term, ricatti_err] = inv_sqrtm_with_downdate(n, rank, dd, diag(dd.^(-1/2)), Z, true_value); 
             otherwise
                 error('not supportive opt function');
         end
@@ -125,7 +133,7 @@ function get_diff_graph(n, dd, Z, optimization_function, update_rank_list)
         krylov_sign = get_krylov_opt_sign(optimization_function); 
         
         krylov_update = get_krylov_approx(func, n, dd, Z, rank, krylov_sign);
-        krylov_approx = result_diag + krylov_sign * krylov_update;
+        krylov_approx = result_diag + krylov_update;
         krylov_err =  get_norm_diff(true_value, krylov_approx);
         krylov_err_values(end+1) = krylov_err;
     end
@@ -136,7 +144,7 @@ function get_diff_graph(n, dd, Z, optimization_function, update_rank_list)
     fprintf("ricatti_err_values:");
     disp(ricatti_err_values);
 
-    plot_graphs(update_rank_list, ricatti_err_values, krylov_err_values);
+    plot_graphs(update_rank_list, ricatti_err_values, krylov_err_values, optimization_function);
 
 end
 
@@ -189,17 +197,22 @@ function krylov_update = get_krylov_approx(f, n, dd, Z, rank, krylov_sign)
     krylov_update = U*Xm_sqrt*U';
 end
 
-function params = get_ricatti_params(rank)
-    params.rmax = rank; % Maximum rank
-    params.tol_rel = 1e-13; % Stopping criterion for rank incrementating procedure
-    params.tolgradnorm = 1e-13; % Stopping for fixed-rank optimization
-    params.maxiter = 100; % Number of iterations for fixed-rank optimization
-    params.maxinner = 30; % Number of trust-region subproblems for fixed-rank optimization
-    params.verbosity = 2; 1; 2; 0; % Show output
+
+function title = get_graph_title(optimization_function)
+    switch optimization_function
+        case 'sqrt_update'
+            title = "Updating sqrt - sqrtm(D+ZZ')";
+        case 'sqrt_downdate'
+            title = "Downdating sqrt sqrtm(D-ZZ')";
+        case 'inv_sqrt_update'
+            title = "Updating inv sqrt - sqrtm(inv((D+ZZ')))";
+        case 'inv_sqrt_downdate'
+            title = "Downdating inv sqrt - sqrtm(inv((D-ZZ')))";
+        otherwise
+            error('not supportive opt function');
+    end    
 end
-
-
-function plot_graphs(update_rank_list, ricatti_err_values, krylov_err_values)
+function plot_graphs(update_rank_list, ricatti_err_values, krylov_err_values, optimization_function)
 
     hold on;
     plot(update_rank_list, ricatti_err_values, '-', 'Color', 'red', 'LineWidth',2, 'DisplayName','ricatti err')
@@ -209,8 +222,8 @@ function plot_graphs(update_rank_list, ricatti_err_values, krylov_err_values)
     plot(update_rank_list, krylov_err_values, '-', 'Color', 'blue', 'LineWidth',2, 'DisplayName','krylov err')
     grid on;    
 
-    title('Ricatti vs. Krylov', 'FontSize',16)
-    ylabel('Diff - approx. vs. true value in fro norm')
+    title(get_graph_title(optimization_function), 'FontSize',16);
+    ylabel('Diff - approx. vs. true value in frobinous norm')
     xlabel('update rank')
     ax = gca;
     ax.XAxisLocation = 'origin';
@@ -218,6 +231,8 @@ function plot_graphs(update_rank_list, ricatti_err_values, krylov_err_values)
     set(gca, 'YLim', [0, 10^0])
     ax.YAxisLocation = 'origin';
     legend;
+%     savefig(sprintf('%s.fig', title));
+
 end
 
 
@@ -225,10 +240,10 @@ end
 %% ---------------------- methods ---------------------- %%
 function params = get_params(rank)
     params.rmax = rank; % Maximum rank
-    params.tol_rel = 1e-6; % Stopping criterion for rank incrementating procedure
-    params.tolgradnorm = 1e-10; % Stopping for fixed-rank optimization
+    params.tol_rel = 1e-12; % Stopping criterion for rank incrementating procedure
+    params.tolgradnorm = 1e-12; % Stopping for fixed-rank optimization
     params.maxiter = 100; % Number of iterations for fixed-rank optimization
-    params.maxinner = 30; % Number of trust-region subproblems for fixed-rank optimization
+    params.maxinner = 50; % Number of trust-region subproblems for fixed-rank optimization
     params.verbosity = 2; 1; 2; 0; % Show output
 end
 
@@ -238,29 +253,23 @@ function U = get_C_ricatti(A_inv_sqrt, Z)
     U = inv_A * Z * sqrtm(inv(eye(size(Z,2)) + Z'*inv_A*Z));
 end
 
-function U = get_inv_sqrtm_minus_update_C_ricatti(A_inv_sqrt, Z)
+function U = get_inv_sqrtm_downdate_C_ricatti(A_inv_sqrt, Z)
     inv_A = A_inv_sqrt*A_inv_sqrt;
     U = inv_A * Z * sqrtm(inv(eye(size(Z,2)) - Z'*inv_A*Z));
 end
 
-function U = get_sqrtm_minus_update_C_ricatti(A_inv_sqrt, Z)
+function U = get_sqrtm_downdate_C_ricatti(A_inv_sqrt, Z)
     inv_A = A_inv_sqrt*A_inv_sqrt;
     U = inv_A * Z * sqrtm(inv(eye(size(Z,2)) - Z'*inv_A*Z));
 end
 
-% function res = get_inv_sqrtm_update_C_ricatti(k, dd, Z)
-%     D = diag(dd);
-%     inv_D = diag(dd.^-1);
-%     H = inv_D*Z*sqrtm(inv(eye(size(Z,2)) + Z'*inv_D*Z));
-%     res = D*H*sqrtm(inv(eye(size(H,2)) - H'*D*H));
-% end
 
-function [approx, update_term, residual] = sqrtm_with_minus_update(n, k, dd, Asqrt, A_inv_sqrt, Z, true_val)
+function [approx, update_term, residual] = sqrtm_with_downdate(n, k, dd, Asqrt, A_inv_sqrt, Z, true_val)
     global pertubation_sign;
     pertubation_sign = 1;
     A_ricatti = A_inv_sqrt;
     B_ricatti = speye(n);
-    C_ricatti = get_sqrtm_minus_update_C_ricatti(A_inv_sqrt, Z)';
+    C_ricatti = get_sqrtm_downdate_C_ricatti(A_inv_sqrt, Z)';
     
     params = get_params(k);
     [X_Riemannian, ~] =  Riemannian_lowrank_riccati(A_ricatti, B_ricatti, C_ricatti, params);
@@ -293,12 +302,12 @@ function [approx, update_term, residual] = inv_sqrtm_update(n, k, dd, Asqrt, A_i
 end
 
 
-function [approx, update_term, residual] = inv_sqrtm_with_minus_update(n, k, dd, A_inv_sqrt, Z, true_val)
+function [approx, update_term, residual] = inv_sqrtm_with_downdate(n, k, dd, A_inv_sqrt, Z, true_val)
     global pertubation_sign;
     pertubation_sign = 1;
     A_ricatti = A_inv_sqrt;
     B_ricatti = speye(n);
-    C_ricatti = get_inv_sqrtm_minus_update_C_ricatti(A_inv_sqrt, Z)';
+    C_ricatti = get_inv_sqrtm_downdate_C_ricatti(A_inv_sqrt, Z)';
     
     params = get_params(k);
     [X_Riemannian, ~] =  Riemannian_lowrank_riccati(A_ricatti, B_ricatti, C_ricatti, params);
