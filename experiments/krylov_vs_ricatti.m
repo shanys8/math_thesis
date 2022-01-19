@@ -12,12 +12,15 @@ update_rank_list = linspace(min_rank, max_rank, max_rank-min_rank+1);
 
 % graph params - need to change only here
 % 'sqrt_update'|'sqrt_downdate'|'inv_sqrt_update'|'inv_sqrt_downdate
-optimization_function = 'inv_sqrt_update'; 
+optimization_function = 'inv_sqrt_downdate'; 
 diagonal_dist = 'uniform'; % 'uniform'|'logspace'
 
 % uniform / logscale with sqrt - between 0-7 rank
 % invsqrt - between 0-5 rank
 
+% TODO - add another line for graph - delta = sqrtm(B)-sqrtm(A) for each
+% rank put the true low rank approx of delta - delta = U sigma U'
+% approx = Uk*siga_mk*Uk'
 
 dd = get_diag_vector(n, diagonal_dist);
 Z = get_Z(Z, optimization_function);
@@ -97,20 +100,26 @@ function get_diff_graph(n, dd, Z, optimization_function, update_rank_list)
 
     ricatti_err_values = [];
     krylov_err_values = [];
-
+    low_rank_approx_err_values = [];
+    
     result_diag = get_diag(optimization_function, dd);
     true_value = get_true_value(optimization_function, dd, Z);
 
+    delta = true_value - result_diag;
+    [U S V] = svd(delta);
+    
     global pertubation_sign;
     pertubation_sign = 1;
     for rank = update_rank_list
+        
         if rank == 0
-            ricatti_err =  get_norm_diff(true_value, result_diag);
-            krylov_err =  get_norm_diff(true_value, result_diag);
-            ricatti_err_values(end+1) = ricatti_err;
-            krylov_err_values(end+1) = krylov_err;
+            zero_error = get_norm_diff(true_value, result_diag);
+            ricatti_err_values(end+1) = zero_error;
+            krylov_err_values(end+1) = zero_error;
+            low_rank_approx_err_values(end+1) = zero_error;
             continue;
         end
+        
         
         switch optimization_function
             case 'sqrt_update'
@@ -136,6 +145,10 @@ function get_diff_graph(n, dd, Z, optimization_function, update_rank_list)
         krylov_approx = result_diag + krylov_update;
         krylov_err =  get_norm_diff(true_value, krylov_approx);
         krylov_err_values(end+1) = krylov_err;
+        
+        low_rank_approx = result_diag + (U(:,1:rank)*S(1:rank,1:rank)*V(:,1:rank)');
+        low_rank_approx_err_values(end+1) = get_norm_diff(true_value, low_rank_approx);
+
     end
 
     fprintf("krylov_err_values:");
@@ -144,7 +157,10 @@ function get_diff_graph(n, dd, Z, optimization_function, update_rank_list)
     fprintf("ricatti_err_values:");
     disp(ricatti_err_values);
 
-    plot_graphs(update_rank_list, ricatti_err_values, krylov_err_values, optimization_function);
+    fprintf("low_rank_approx_err_values:");
+    disp(low_rank_approx_err_values);
+    
+    plot_graphs(update_rank_list, ricatti_err_values, krylov_err_values, low_rank_approx_err_values, optimization_function);
 
 end
 
@@ -212,16 +228,20 @@ function title = get_graph_title(optimization_function)
             error('not supportive opt function');
     end    
 end
-function plot_graphs(update_rank_list, ricatti_err_values, krylov_err_values, optimization_function)
+function plot_graphs(update_rank_list, ricatti_err_values, krylov_err_values, low_rank_approx_err_values, optimization_function)
 
     hold on;
-    plot(update_rank_list, ricatti_err_values, '-', 'Color', 'red', 'LineWidth',2, 'DisplayName','ricatti err')
+    plot(update_rank_list, ricatti_err_values, '-', 'Color', 'blue', 'LineWidth',2, 'DisplayName','ricatti err')
     grid on;   
     
     hold on;
-    plot(update_rank_list, krylov_err_values, '-', 'Color', 'blue', 'LineWidth',2, 'DisplayName','krylov err')
+    plot(update_rank_list, krylov_err_values, '-', 'Color', 'red', 'LineWidth',2, 'DisplayName','krylov err')
     grid on;    
 
+    hold on;
+    plot(update_rank_list, low_rank_approx_err_values, '-', 'Color', 'green', 'LineWidth',2, 'DisplayName','low rank approx err')
+    grid on;   
+    
     title(get_graph_title(optimization_function), 'FontSize',16);
     ylabel('Diff - approx. vs. true value in frobinous norm')
     xlabel('update rank')

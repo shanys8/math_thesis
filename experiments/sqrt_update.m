@@ -10,16 +10,16 @@ Z = 0.01*Z;
 
 
 %% sqrt update W^(1/2) of W = D + Z*Z' - only need D^(1/2)
-% [approx, update_term, residual] = sqrtm_update(n, dd, diag(sqrt(dd)), Z, k, sqrtm(diag(dd)+Z*Z')); 
+% [approx, update_term, residual, test_residual] = sqrtm_update(n, dd, diag(sqrt(dd)), Z, k, sqrtm(diag(dd)+Z*Z')); 
 
 %% inv sqrt update W^(-1/2) of W = D + Z*Z' -  need D^(1/2) &  D^(-1/2)
-[approx, update_term, residual] = inv_sqrtm_update(n, k, dd, diag(sqrt(dd)), diag(dd.^(-1/2)), Z, (diag(dd) + Z*Z')^(-1/2)); 
+% [approx, update_term, residual, test_residual] = inv_sqrtm_update(n, k, dd, diag(sqrt(dd)), diag(dd.^(-1/2)), Z, (diag(dd) + Z*Z')^(-1/2)); 
 
 %% inv sqrt update W^(-1/2) of W = D - Z*Z' - only need D^(-1/2)
-% [approx, update_term, residual] = inv_sqrtm_with_minus_update(n, k, dd, diag(dd.^(-1/2)), Z, (diag(dd) - Z*Z')^(-1/2)); 
+% [approx, update_term, residual, test_residual] = inv_sqrtm_with_minus_update(n, k, dd, diag(dd.^(-1/2)), Z, (diag(dd) - Z*Z')^(-1/2)); 
 
 %% sqrt update W^(1/2) of W = D - Z*Z' -  need D^(1/2) &  D^(-1/2)
-% [approx, update_term, residual] = sqrtm_with_minus_update(n, k, dd, diag(sqrt(dd)), diag(dd.^(-1/2)), Z, sqrtm(diag(dd)-Z*Z')); 
+[approx, update_term, residual, test_residual] = sqrtm_with_minus_update(n, k, dd, diag(sqrt(dd)), diag(dd.^(-1/2)), Z, sqrtm(diag(dd)-Z*Z')); 
 
 
 fprintf("done");
@@ -57,7 +57,25 @@ function res = get_inv_sqrtm_update_C_ricatti(k, dd, Z)
     res = D*H*sqrtm(inv(eye(k) - H'*D*H));
 end
 
-function [approx, update_term, residual] = sqrtm_with_minus_update(n, k, dd, Asqrt, A_inv_sqrt, Z, true_val)
+function R_C = get_R_C(A, Z, alpha, beta, approx_C)
+    inv_A = inv(A);
+    if beta == 1
+        V=Z;
+    else
+        V = inv_A * Z * sqrtm(inv(eye(size(Z,2)) + alpha*Z'*inv_A*Z));
+    end
+    R_C = norm(V*V'-A^(beta/2)*approx_C - approx_C*A^(beta/2) - alpha*beta*approx_C*approx_C, 'fro');
+end
+
+function RHS = get_RHS(A, Z, alpha, beta, approx_C)
+    RHS = norm((A + alpha*(Z*Z'))^beta - (A^(beta/2)+alpha*beta*approx_C)^2, 'fro');
+end
+
+function test_residual = get_test_redisual(A, Z, alpha, beta, approx_C)
+    test_residual = get_RHS(A, Z, alpha, beta, approx_C) - get_R_C(A, Z, alpha, beta, approx_C);
+end
+
+function [approx, update_term, residual, test_residual] = sqrtm_with_minus_update(n, k, dd, Asqrt, A_inv_sqrt, Z, true_val)
     global pertubation_sign;
     pertubation_sign = 1;
     A_ricatti = A_inv_sqrt;
@@ -73,10 +91,13 @@ function [approx, update_term, residual] = sqrtm_with_minus_update(n, k, dd, Asq
     update_term = Asqrt*Y*sqrtm(inv(eye(size(Y,2))+Y'*Asqrt*Y));
     approx = Asqrt - update_term*update_term';
     residual = norm(approx-true_val, 'fro');
+    
+    test_residual = get_test_redisual(diag(dd), Z, -1, 1, update_term*update_term');
+    
 end
 
 %% version 2 %%
-function [approx, update_term, residual] = inv_sqrtm_update(n, k, dd, Asqrt, A_inv_sqrt, Z, true_val)
+function [approx, update_term, residual, test_residual] = inv_sqrtm_update(n, k, dd, Asqrt, A_inv_sqrt, Z, true_val)
     global pertubation_sign;
     pertubation_sign = 1;
     A_ricatti = Asqrt;
@@ -92,33 +113,15 @@ function [approx, update_term, residual] = inv_sqrtm_update(n, k, dd, Asqrt, A_i
     update_term = A_inv_sqrt*Y*sqrtm(inv(eye(size(Y,2))+Y'*A_inv_sqrt*Y));
     approx = A_inv_sqrt - update_term*update_term';
     residual = norm(approx-true_val, 'fro');
+    test_residual = get_test_redisual(diag(dd), Z, 1, -1, update_term*update_term');
 end
 
-%% version 1 %%
-% function [update_term, residual] = inv_sqrtm_update(n, k, dd, Asqrt, A_inv_sqrt, Z, true_val)
-%     global pertubation_sign;
-%     pertubation_sign = 1;
-%     A_ricatti = Asqrt;
-%     B_ricatti = speye(n);
-%     C_ricatti = get_inv_sqrtm_update_C_ricatti(k, dd, Z)';
-%     
-%     params = get_params(k);
-%     [X_Riemannian, ~] =  Riemannian_lowrank_riccati(A_ricatti, B_ricatti, C_ricatti, params);
-% 
-%     Y = X_Riemannian.Y;
-% 
-%     % woodbury
-%     update_term = A_inv_sqrt*Y*sqrtm(inv(eye(size(Y,2))+Y'*A_inv_sqrt*Y));
-%     approx = A_inv_sqrt - update_term*update_term';
-%     residual = norm(approx-true_val, 'fro');
-% end
-
-function [approx, update_term, residual] = inv_sqrtm_with_minus_update(n, k, dd, A_inv_sqrt, Z, true_val)
+function [approx, update_term, residual, test_residual] = inv_sqrtm_with_minus_update(n, k, dd, A_inv_sqrt, Z, true_val)
     global pertubation_sign;
     pertubation_sign = 1;
     A_ricatti = A_inv_sqrt;
     B_ricatti = speye(n);
-    C_ricatti = get_inv_sqrtm_minus_update_C_ricatti(k, A_inv_sqrt, Z)';
+    C_ricatti = x(k, A_inv_sqrt, Z)';
     
     params = get_params(k);
     [X_Riemannian, ~] =  Riemannian_lowrank_riccati(A_ricatti, B_ricatti, C_ricatti, params);
@@ -126,9 +129,10 @@ function [approx, update_term, residual] = inv_sqrtm_with_minus_update(n, k, dd,
     update_term = X_Riemannian.Y;
     approx = A_ricatti + update_term*update_term';
     residual = norm(approx-true_val, 'fro');
+    test_residual = get_test_redisual(diag(dd), Z, -1, -1, update_term*update_term');
 end
 
-function [approx, update_term, residual] = sqrtm_update(n, dd, Asqrt, Z, k, true_val)
+function [approx, update_term, residual, test_residual] = sqrtm_update(n, dd, Asqrt, Z, k, true_val)
 
     global pertubation_sign;
     pertubation_sign = 1;
@@ -142,6 +146,7 @@ function [approx, update_term, residual] = sqrtm_update(n, dd, Asqrt, Z, k, true
     update_term = X_Riemannian.Y;
     approx = A_ricatti + update_term*update_term';
     residual = norm(approx-true_val, 'fro');
+    test_residual = get_test_redisual(diag(dd), Z, 1, 1, update_term*update_term');
     
 end
 
