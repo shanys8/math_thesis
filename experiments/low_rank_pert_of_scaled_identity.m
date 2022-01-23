@@ -15,8 +15,8 @@ B1 = double(load('test_mat_1.mat').pickle_data);
 B2 = double(load('test_mat_2.mat').pickle_data);
 
 
-% plot_graph(B1, epsilon, alpha, update_rank_list);
-plot_graph(B2, epsilon, alpha, update_rank_list);
+plot_graph(B1, epsilon, alpha, update_rank_list);
+% plot_graph(B2, epsilon, alpha, update_rank_list);
 
 fprintf("Done");
 
