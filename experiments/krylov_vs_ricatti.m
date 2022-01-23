@@ -228,6 +228,7 @@ function title = get_graph_title(optimization_function)
             error('not supportive opt function');
     end    
 end
+
 function plot_graphs(update_rank_list, ricatti_err_values, krylov_err_values, low_rank_approx_err_values, optimization_function)
 
     hold on;

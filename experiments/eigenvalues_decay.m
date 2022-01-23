@@ -6,7 +6,7 @@ k = 1;                      % low rank pert dim - only works for k = 1
 Z = randn(n,k);
 Z = Z/norm(Z);
 
-diagonal_dist = 'logspace'; % 'uniform'|'logspace'
+diagonal_dist = 'uniform'; % 'uniform'|'logspace'
 dd = get_diag_vector(n, diagonal_dist);
 A = diag(dd);
 D = Z*Z';
