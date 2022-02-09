@@ -31,9 +31,9 @@ get_diff_graph(n, dd, Z, optimization_function, update_rank_list)
 %% ------------------------- methods ------------------------- %%
 
 function Z = get_Z(Z, optimization_function)
-    if contains(optimization_function, 'downdate')
+%     if contains(optimization_function, 'downdate')
         Z = 0.1*Z;
-    end
+%     end
 end
 
 function dd = get_diag_vector(n, diagonal_dist)
@@ -300,7 +300,7 @@ function [approx, update_term, residual] = sqrtm_with_downdate(n, k, dd, Asqrt, 
     % woodbury
     update_term = Asqrt*Y*sqrtm(inv(eye(size(Y,2))+Y'*Asqrt*Y));
     approx = Asqrt - update_term*update_term';
-    residual = norm(approx-true_val, 'fro');
+    residual = get_norm_diff(true_val, approx);
 end
 
 %% version 2 %%
@@ -319,7 +319,7 @@ function [approx, update_term, residual] = inv_sqrtm_update(n, k, dd, Asqrt, A_i
     % woodbury
     update_term = A_inv_sqrt*Y*sqrtm(inv(eye(size(Y,2))+Y'*A_inv_sqrt*Y));
     approx = A_inv_sqrt - update_term*update_term';
-    residual = norm(approx-true_val, 'fro');
+    residual = get_norm_diff(true_val, approx);
 end
 
 
@@ -335,7 +335,7 @@ function [approx, update_term, residual] = inv_sqrtm_with_downdate(n, k, dd, A_i
 
     update_term = X_Riemannian.Y;
     approx = A_ricatti + update_term*update_term';
-    residual = norm(approx-true_val, 'fro');
+    residual = get_norm_diff(true_val, approx);
 end
 
 function [approx, update_term, residual] = sqrtm_update(n, dd, Asqrt, Z, k, true_val)
@@ -351,7 +351,6 @@ function [approx, update_term, residual] = sqrtm_update(n, dd, Asqrt, Z, k, true
 
     update_term = X_Riemannian.Y;
     approx = A_ricatti + update_term*update_term';
-    residual = norm(approx-true_val, 'fro');
-    
+    residual = get_norm_diff(true_val, approx);
 end
 
